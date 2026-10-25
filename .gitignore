@@ -1,0 +1,8 @@
+.DS_Store
+
+# The original brief stays local; it is not part of the repository.
+README.txt
+
+# Session working files (plans, notes) stay out of the repository.
+.claude/plans/
+.claude/settings.local.json
