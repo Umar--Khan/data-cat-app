@@ -1,0 +1,54 @@
+from pathlib import Path
+from typing import Annotated, Literal, Self
+
+from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from catalogue.core.logging import LogLevel
+
+# A browser's Origin header never carries a path or trailing slash, so an entry with one would
+# match nothing and every call would fail CORS without a hint why.
+type Origin = Annotated[str, Field(pattern=r"^https?://[^/\s]+$")]
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="CATALOGUE_",
+        # Anchored to backend/ rather than the working directory, so every way of starting the
+        # app reads the same file.
+        env_file=Path(__file__).resolve().parents[3] / ".env",
+        env_ignore_empty=True,
+        # A misspelt key in .env must fail startup: silently dropping it can leave `auto` in
+        # charge of a checkout that holds a key, which means billed Claude calls.
+        extra="forbid",
+    )
+
+    curation_provider: Literal["auto", "anthropic", "keyword"] = "auto"
+    # The two Anthropic variables keep their conventional names, so a key exported in the shell
+    # counts. They still reach the SDK only through these fields, never by the SDK's own lookup.
+    anthropic_api_key: SecretStr | None = Field(default=None, validation_alias="ANTHROPIC_API_KEY")
+    anthropic_base_url: str = Field(
+        default="https://api.anthropic.com",
+        validation_alias="ANTHROPIC_BASE_URL",
+        pattern=r"^https?://\S+$",
+    )
+    anthropic_model: str = "claude-opus-5-5"
+    anthropic_timeout_seconds: float = Field(default=20, gt=0)
+    keyword_delay_ms: int = Field(default=0, ge=0, le=10_000)
+    cors_origins: list[Origin] = ["http://localhost:5173"]
+    log_level: LogLevel = "INFO"
+
+    @field_validator("anthropic_api_key", mode="before")
+    @classmethod
+    def _blank_key_is_unset(cls, value: object) -> object:
+        if isinstance(value, SecretStr):
+            value = value.get_secret_value()
+        if isinstance(value, str):
+            return value.strip() or None
+        return value
+
+    @model_validator(mode="after")
+    def _explicit_anthropic_requires_key(self) -> Self:
+        if self.curation_provider == "anthropic" and self.anthropic_api_key is None:
+            raise ValueError("CATALOGUE_CURATION_PROVIDER=anthropic requires ANTHROPIC_API_KEY")
+        return self
