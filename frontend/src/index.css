@@ -1,0 +1,58 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+
+/* The default palette, radii and shadows are removed, so a raw hue such as bg-blue-500 emits no CSS
+   and every colour on the page is one of these tokens (specs/styling.md). */
+@theme {
+  --color-*: initial;
+  --color-canvas: oklch(98.4% 0.003 247.858); /* slate-50 */
+  --color-surface: oklch(100% 0 0); /* white */
+  --color-surface-muted: oklch(96.8% 0.007 247.896); /* slate-100 */
+  --color-fg: oklch(20.8% 0.042 265.755); /* slate-900 */
+  --color-fg-muted: oklch(44.6% 0.043 257.281); /* slate-600 */
+  --color-border: oklch(92.9% 0.013 255.508); /* slate-200 */
+  --color-border-input: oklch(55.4% 0.046 257.417); /* slate-500 */
+
+  --color-accent: oklch(51.1% 0.262 276.966); /* indigo-600 */
+  --color-accent-hover: oklch(45.7% 0.24 277.023); /* indigo-700 */
+  --color-on-accent: oklch(100% 0 0); /* white */
+  --color-accent-subtle: oklch(96.2% 0.018 272.314); /* indigo-50 */
+  --color-accent-subtle-fg: oklch(45.7% 0.24 277.023); /* indigo-700 */
+  --color-focus: oklch(51.1% 0.262 276.966); /* indigo-600 */
+
+  --color-danger: oklch(50.5% 0.213 27.518); /* red-700 */
+  --color-danger-hover: oklch(44.4% 0.177 26.899); /* red-800 */
+  --color-danger-subtle: oklch(97.1% 0.013 17.38); /* red-50 */
+  --color-warning-fg: oklch(47.3% 0.137 46.201); /* amber-800 */
+  --color-warning-subtle: oklch(98.7% 0.022 95.277); /* amber-50 */
+  --color-success-fg: oklch(43.2% 0.095 166.913); /* emerald-800 */
+  --color-success-subtle: oklch(97.9% 0.021 166.113); /* emerald-50 */
+
+  --radius-*: initial;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+
+  --shadow-*: initial;
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 43 / 0.06), 0 1px 3px 0 rgb(15 23 43 / 0.08);
+  --shadow-lg: 0 12px 32px -8px rgb(15 23 43 / 0.25);
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+  --text-shadow-*: initial;
+
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-fg antialiased;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-focus;
+  }
+}
