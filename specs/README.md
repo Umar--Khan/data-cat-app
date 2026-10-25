@@ -30,10 +30,10 @@ Each spec uses these sections, omitting any that would be empty:
 
 ## Index
 
-| Spec | Subsystem |
-|---|---|
-| [api-contract.md](./api-contract.md) | HTTP API: endpoints, the Dataset shape, problem+json errors, validation, OpenAPI and codegen |
-| [curation.md](./curation.md) | AI curation: provider selection, the Claude request and prompt, normalisation, failures, the keyword mock |
-| [datasets-ui.md](./datasets-ui.md) | The catalogue page: form, list, delete, feedback, focus, accessibility |
-| [styling.md](./styling.md) | Design principles, Tailwind v4 tokens and contrast, the variant pattern |
-| [quality-gates.md](./quality-gates.md) | Scripts, test layers, coverage gates, git hooks, CI, the E2E harness, Claude-in-Chrome verification |
+| Spec                                   | Subsystem                                                                                                 |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| [api-contract.md](./api-contract.md)   | HTTP API: endpoints, the Dataset shape, problem+json errors, validation, OpenAPI and codegen              |
+| [curation.md](./curation.md)           | AI curation: provider selection, the Claude request and prompt, normalisation, failures, the keyword mock |
+| [datasets-ui.md](./datasets-ui.md)     | The catalogue page: form, list, delete, feedback, focus, accessibility                                    |
+| [styling.md](./styling.md)             | Design principles, Tailwind v4 tokens and contrast, the variant pattern                                   |
+| [quality-gates.md](./quality-gates.md) | Scripts, test layers, coverage gates, git hooks, CI, the E2E harness, Claude-in-Chrome verification       |

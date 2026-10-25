@@ -27,6 +27,7 @@ The first matching rule wins:
 3. `auto` (the default) selects Claude when `ANTHROPIC_API_KEY` is non-blank, and keyword otherwise.
 
 Details:
+
 - **Settings is the only source of credentials and host.**
   - A blank or whitespace-only key is normalised to unset.
   - The factory always passes `api_key` and `base_url` explicitly. `base_url` defaults to `https://api.anthropic.com` and is never `None`.
@@ -69,12 +70,14 @@ The text lives in `prompt.py` as one literal so it reads as prose in review. It 
 `CurationService` applies this to both providers.
 
 Tags, in order:
+
 1. Strip whitespace and surrounding `#`, `"` and `'`. Collapse internal whitespace to `-`.
 2. Map known acronyms to canonical case (PII, HR, FX, SKU, KYC, AML, CRM, ESG, P&L). Keep other all-caps tokens of 2–5 characters as they are. Lowercase everything else.
 3. Drop tags that are empty, longer than 32 characters, or generic (`data`, `dataset`, `datasets`, `table`, `misc`). Also drop any tag that is neither a canonical acronym nor a match for `^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$`.
 4. De-duplicate case-insensitively, keeping the first occurrence. Cap at 6.
 
 Summary, in order:
+
 1. Collapse whitespace and strip wrapping quotes.
 2. Keep the first sentence.
 3. If it is over 240 characters, cut at a word boundary and append `…`. Otherwise make sure it ends with punctuation.
@@ -86,15 +89,15 @@ A result counts as `completed` only with at least one tag and a non-empty summar
 
 Every failure saves the record with `tags: []`, `summary: null` and `curation.status: "failed"`. `curation.detail` never contains SDK messages, status codes or request ids; those go to the log. Rows are matched top to bottom. `APITimeoutError` subclasses `APIConnectionError`, which is why `timeout` comes first.
 
-| Failure | Trigger | `curation.detail` |
-|---|---|---|
-| `timeout` | Budget exceeded (including `retry-after` waits); `APITimeoutError` | AI curation timed out. |
-| `rate_limited` | `RateLimitError` after the one retry | The AI service is handling too many requests. |
-| `unavailable` | `APIConnectionError`; any `APIStatusError` with status ≥ 500. Classified by status code, because 529 `OverloadedError` is not a subclass of `InternalServerError`. | The AI service could not be reached. |
-| `misconfigured` | `APIStatusError` with status < 500, other than 429 (bad model, 401, 402, 403, 404) | AI curation is not configured correctly on the server. |
-| `refused` | `stop_reason == "refusal"`. A fallback model, if one ran, also refused. | The AI model declined to curate this description. |
-| `invalid_output` | `pydantic.ValidationError` from `parse()` (truncated JSON, prose, a refusal partway through output); `stop_reason == "max_tokens"`; `parsed_output is None`; no tag or no summary left after normalisation | The AI response could not be used. |
-| `unexpected` | Any other exception from a provider or the normaliser | AI curation failed unexpectedly. |
+| Failure          | Trigger                                                                                                                                                                                                    | `curation.detail`                                      |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `timeout`        | Budget exceeded (including `retry-after` waits); `APITimeoutError`                                                                                                                                         | AI curation timed out.                                 |
+| `rate_limited`   | `RateLimitError` after the one retry                                                                                                                                                                       | The AI service is handling too many requests.          |
+| `unavailable`    | `APIConnectionError`; any `APIStatusError` with status ≥ 500. Classified by status code, because 529 `OverloadedError` is not a subclass of `InternalServerError`.                                         | The AI service could not be reached.                   |
+| `misconfigured`  | `APIStatusError` with status < 500, other than 429 (bad model, 401, 402, 403, 404)                                                                                                                         | AI curation is not configured correctly on the server. |
+| `refused`        | `stop_reason == "refusal"`. A fallback model, if one ran, also refused.                                                                                                                                    | The AI model declined to curate this description.      |
+| `invalid_output` | `pydantic.ValidationError` from `parse()` (truncated JSON, prose, a refusal partway through output); `stop_reason == "max_tokens"`; `parsed_output is None`; no tag or no summary left after normalisation | The AI response could not be used.                     |
+| `unexpected`     | Any other exception from a provider or the normaliser                                                                                                                                                      | AI curation failed unexpectedly.                       |
 
 ## Data contract
 
@@ -117,7 +120,7 @@ class CurationProvider(Protocol):
 - **Check `stop_reason` only after a successful parse.** `parse()` raises `ValidationError` before `stop_reason` is visible, so catching that error is mandatory.
 - **The failure path is forced through real configuration** (the offline configuration above). Rejected: a fake failing provider, or a test-only flag.
 - **Keyword mock: weighted facet taxonomy plus a template summary.** It shows real curation logic and is predictable. Rejected: hard-coded tags; a grammar-driven summariser, which produced visible errors such as wrong plurals and broken acronyms on unseen input.
-- **Tests never reach the network or `backend/.env`.** An autouse fixture deletes `ANTHROPIC_*` and `CATALOGUE_*` and sets `ANTHROPIC_BASE_URL=http://127.0.0.1:9`. Tests build Settings with `_env_file=None`, the same switch `export_openapi()` uses.
+- **Tests never reach the network or `backend/.env`.** An autouse fixture deletes `ANTHROPIC_*` and `CATALOGUE_*`, sets `ANTHROPIC_BASE_URL=http://127.0.0.1:9` and sets `Settings.model_config["env_file"]` to `None`, so even a `Settings()` built without `_env_file=None` never reads `backend/.env`. Tests build Settings with `_env_file=None`, the same switch `export_openapi()` uses.
 - **Input is bounded** by the API's field limits (at most about 2,300 characters per dataset), which keeps the cost per call predictable and makes a 413 unreachable.
 
 ## Fixture/mock semantics
@@ -140,14 +143,15 @@ The keyword provider models the same facets as the prompt, so both providers pro
   3. **Cadence and article.** `{cadence}` is the selected cadence tag, lowercased; it is omitted when there is none. `{Article}` is "An" before export, extract, annual and hourly, and "A" otherwise. There is no pluralisation and no other grammar.
 - **Golden cases** (exact, in tests):
 
-| Input | Tags | Summary |
-|---|---|---|
-| Brief test payload (Trade Confirmations / Middle Office) | `trading, finance, settlements, daily` | A daily export of confirmed trades covering instrument type, counterparty, and notional value. |
-| Seed 1 (Customer Transactions / Finance Team) | `finance, transactions, PII, daily` | A daily dataset of customer transactions covering amount, currency, and timestamp. |
-| Seed 2 (Product Inventory / Operations Team) | `operations, inventory, warehouse` | A snapshot of warehouse stock levels by SKU covering product name, quantity on hand, and reorder threshold. |
-| Seed 3 (Employee Directory / HR Team) | `HR, employees, PII, weekly` | A weekly list of current employees covering name, department, and role. |
+| Input                                                    | Tags                                   | Summary                                                                                                     |
+| -------------------------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Brief test payload (Trade Confirmations / Middle Office) | `trading, finance, settlements, daily` | A daily export of confirmed trades covering instrument type, counterparty, and notional value.              |
+| Seed 1 (Customer Transactions / Finance Team)            | `finance, transactions, PII, daily`    | A daily dataset of customer transactions covering amount, currency, and timestamp.                          |
+| Seed 2 (Product Inventory / Operations Team)             | `operations, inventory, warehouse`     | A snapshot of warehouse stock levels by SKU covering product name, quantity on hand, and reorder threshold. |
+| Seed 3 (Employee Directory / HR Team)                    | `HR, employees, PII, weekly`           | A weekly list of current employees covering name, department, and role.                                     |
 
-  The stored seed records keep the brief's own tags, summaries and tag order. These goldens test the provider, not the seeds.
+The stored seed records keep the brief's own tags, summaries and tag order. These goldens test the provider, not the seeds.
+
 - **Latency.** `CATALOGUE_KEYWORD_DELAY_MS` (default 0) is awaited through an injectable `sleep` before classifying. `.env.example` sets 1200 so people and Claude in Chrome can see the pending state. Tests and E2E use 0 and control timing through gates.
 
 ### Claude provider tests

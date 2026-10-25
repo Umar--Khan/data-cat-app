@@ -74,12 +74,12 @@ The single page of the app: a form to register a dataset and, below it, the cata
 
 An exhaustive switch over `curation`, so a new enum value fails `tsc` after codegen:
 
-| `curation` | Badge | Icon |
-|---|---|---|
-| completed, `anthropic` | Curated by Claude | Sparkles |
-| completed, `keyword` | Keyword curated | Tag |
-| completed, `seed` | Sample data | Database |
-| failed (any provider) | Curation failed | TriangleAlert |
+| `curation`             | Badge             | Icon          |
+| ---------------------- | ----------------- | ------------- |
+| completed, `anthropic` | Curated by Claude | Sparkles      |
+| completed, `keyword`   | Keyword curated   | Tag           |
+| completed, `seed`      | Sample data       | Database      |
+| failed (any provider)  | Curation failed   | TriangleAlert |
 
 Every badge carries text. Colour and icon only reinforce it.
 
@@ -138,23 +138,24 @@ An error boundary at the root shows a fallback with a reload button.
 
 ### Accessibility contract (WCAG 2.2 AA)
 
-| Area | Commitment |
-|---|---|
-| Structure (1.3.1, 2.4.1, 2.4.6) | Landmarks; one `h1`, an `h2` per section, an `h3` per row, with no skipped levels; a real `<ul>` list; a skip link |
+| Area                                          | Commitment                                                                                                                                                                                                                               |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Structure (1.3.1, 2.4.1, 2.4.6)               | Landmarks; one `h1`, an `h2` per section, an `h3` per row, with no skipped levels; a real `<ul>` list; a skip link                                                                                                                       |
 | Labels and errors (1.3.1, 3.3.1–3.3.3, 4.1.2) | `<label for>` on every control; native `required` with `noValidate` on the form; hint and error through `aria-describedby`; `aria-invalid` only when there is an error; error text names the fix; focus moves to the first invalid field |
-| Status messages (4.1.3) | Toasts in a polite live region; always-mounted `role="status"` regions for pending, loading and load failure; each event announced once |
-| Keyboard (2.1.1, 2.1.2, 2.4.3) | Native controls only; no positive `tabindex`; the dialog is modal and closes on Esc; focus rules as above |
-| Focus visible (2.4.7, 2.4.11, 1.4.11) | A global `:focus-visible` ring of at least 3:1 on every background; toasts never hide the focused element |
-| Target size (2.5.8) | Primary controls 40 px; row Delete 32 px; toast close 24 px |
-| Colour (1.4.1, 1.4.3, 1.4.11) | Text on every status; token contrast as in [styling.md](./styling.md); controls keep a visible boundary in forced-colours mode |
-| Reflow and resize (1.4.4, 1.4.10, 1.4.12) | One column; rem-based type; no fixed heights; works at 320 CSS px and 200 % zoom |
-| Error prevention (3.3.4) | Delete is confirmed |
-| Timing (2.2.1) | Toasts pause on hover and focus; their information also stays on the page (badge, restored row, inline alert) |
-| Motion (2.3.3, AAA, adopted beyond AA) | Animation only under `motion-safe`; sonner honours reduced motion |
+| Status messages (4.1.3)                       | Toasts in a polite live region; always-mounted `role="status"` regions for pending, loading and load failure; each event announced once                                                                                                  |
+| Keyboard (2.1.1, 2.1.2, 2.4.3)                | Native controls only; no positive `tabindex`; the dialog is modal and closes on Esc; focus rules as above                                                                                                                                |
+| Focus visible (2.4.7, 2.4.11, 1.4.11)         | A global `:focus-visible` ring of at least 3:1 on every background; toasts never hide the focused element                                                                                                                                |
+| Target size (2.5.8)                           | Primary controls 40 px; row Delete 32 px; toast close 24 px                                                                                                                                                                              |
+| Colour (1.4.1, 1.4.3, 1.4.11)                 | Text on every status; token contrast as in [styling.md](./styling.md); controls keep a visible boundary in forced-colours mode                                                                                                           |
+| Reflow and resize (1.4.4, 1.4.10, 1.4.12)     | One column; rem-based type; no fixed heights; works at 320 CSS px and 200 % zoom                                                                                                                                                         |
+| Error prevention (3.3.4)                      | Delete is confirmed                                                                                                                                                                                                                      |
+| Timing (2.2.1)                                | Toasts pause on hover and focus; their information also stays on the page (badge, restored row, inline alert)                                                                                                                            |
+| Motion (2.3.3, AAA, adopted beyond AA)        | Animation only under `motion-safe`; sonner honours reduced motion                                                                                                                                                                        |
 
 ## Fixture/mock semantics
 
 MSW (`frontend/src/test/msw/`) serves the API contract over a typed in-memory store, reset before each test and seeded with the three seed records. Named scenarios:
+
 - `listFails`, `createInvalid(fieldErrors)`, `createCurationFailed`, `deleteFails`, `deleteNotFound`;
 - `hold(method)`, which returns a gate the test releases, so pending states can be asserted without timers.
 

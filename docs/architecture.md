@@ -49,8 +49,8 @@ frontend/             React app with its Vitest and Playwright suites
 specs/                one behaviour contract per subsystem; read before changing that subsystem
 docs/                 this file and the latest browser-verification report
 .claude/              project skills and agents
-.github/workflows/    CI
-scripts/dev.mjs       starts API and web together
+.github/              CI workflow and its composite setup action
+scripts/              dev.mjs runs API and web together; gen-api.mjs runs codegen and the drift check; ensure-env.mjs creates backend/.env
 README.md             reviewer entry point: prerequisites, run, test, how the brief is met
 CLAUDE.md             entry point for AI sessions: commands, where truth lives, rules
 package.json          root scripts; husky, lint-staged, commitlint, Prettier
@@ -62,17 +62,17 @@ package.json          root scripts; husky, lint-staged, commitlint, Prettier
 
 `app → api → services → curation | repositories → domain → core`
 
-A module imports only from layers below it, and `curation` and `repositories` never import each other. Only `api` and `app` import FastAPI or Starlette, only `curation` imports the Anthropic SDK, and only `app.py` and `curation/factory.py` name concrete implementations. import-linter enforces these contracts in `pnpm check`.
+A module imports only from layers below it, and `curation` and `repositories` never import each other. Only `api` and `app` import FastAPI or Starlette, only `curation` imports the Anthropic SDK, `domain` imports no framework at all (not even Pydantic), and only `app.py` and `curation/factory.py` name concrete implementations. import-linter enforces these contracts in `pnpm check`.
 
-| Package | Owns |
-|---|---|
-| `app.py` | `create_app()`, the composition root: settings, lifespan, middleware, routers. `export_openapi()` for codegen. |
-| `api/` | Routes, camelCase wire schemas, problem+json handlers, dependency providers, OpenAPI customisation |
-| `services/` | `DatasetService`: list; create (curate, then store); delete (missing id raises a domain error) |
-| `curation/` | Provider protocol, Claude and keyword providers, the `CurationService` failure boundary, normalisation, prompt |
-| `repositories/` | `DatasetRepository` protocol, the in-memory implementation, seed records |
-| `domain/` | Frozen dataclasses (`NewDataset`, `Dataset`, `Curation`), literal types, domain errors. No framework imports. |
-| `core/` | Settings (pydantic-settings) and logging |
+| Package         | Owns                                                                                                           |
+| --------------- | -------------------------------------------------------------------------------------------------------------- |
+| `app.py`        | `create_app()`, the composition root: settings, lifespan, middleware, routers. `export_openapi()` for codegen. |
+| `api/`          | Routes, camelCase wire schemas, problem+json handlers, dependency providers, OpenAPI customisation             |
+| `services/`     | `DatasetService`: list; create (curate, then store); delete (missing id raises a domain error)                 |
+| `curation/`     | Provider protocol, Claude and keyword providers, the `CurationService` failure boundary, normalisation, prompt |
+| `repositories/` | `DatasetRepository` protocol, the in-memory implementation, seed records                                       |
+| `domain/`       | Frozen dataclasses (`NewDataset`, `Dataset`, `Curation`), literal types, domain errors. No framework imports.  |
+| `core/`         | Settings (pydantic-settings) and logging                                                                       |
 
 ### Models
 
@@ -92,19 +92,19 @@ There is one uvicorn worker, routes are async, and repository methods never awai
 
 ### Configuration
 
-pydantic-settings reads the environment first and then `backend/.env`. App settings use the `CATALOGUE_` prefix. The two Anthropic variables keep their conventional names and reach the SDK only through Settings ([provider selection](../specs/curation.md#provider-selection)).
+pydantic-settings reads the environment first and then `backend/.env`, resolved from the package rather than the working directory. An unknown key in `backend/.env` fails startup, so a misspelt `CATALOGUE_CURATION_PROVIDER` cannot silently fall back to `auto`. `.env.example` leaves the code defaults commented out, so a later change to a default reaches existing checkouts. App settings use the `CATALOGUE_` prefix. The two Anthropic variables keep their conventional names and reach the SDK only through Settings ([provider selection](../specs/curation.md#provider-selection)).
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `CATALOGUE_CURATION_PROVIDER` | `auto` | `auto`, `keyword` or `anthropic` |
-| `ANTHROPIC_API_KEY` | unset | Enables Claude under `auto`. A key exported in the shell counts too. |
-| `ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | API host |
-| `CATALOGUE_ANTHROPIC_MODEL` | `claude-opus-5-5` | |
-| `CATALOGUE_ANTHROPIC_TIMEOUT_SECONDS` | `20` | Total curation budget, retries included |
-| `CATALOGUE_KEYWORD_DELAY_MS` | `0` | Simulated keyword latency. `.env.example` sets 1200 so the pending state is visible in dev. |
-| `CATALOGUE_CORS_ORIGINS` | `["http://localhost:5173","http://127.0.0.1:5173"]` | |
-| `CATALOGUE_LOG_LEVEL` | `INFO` | |
-| `VITE_API_BASE_URL` (frontend) | `http://localhost:8000` | Committed in `frontend/.env`. `scripts/dev.mjs` and Playwright override it per profile. |
+| Variable                              | Default                     | Purpose                                                                                     |
+| ------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------- |
+| `CATALOGUE_CURATION_PROVIDER`         | `auto`                      | `auto`, `keyword` or `anthropic`                                                            |
+| `ANTHROPIC_API_KEY`                   | unset                       | Enables Claude under `auto`. A key exported in the shell counts too.                        |
+| `ANTHROPIC_BASE_URL`                  | `https://api.anthropic.com` | API host                                                                                    |
+| `CATALOGUE_ANTHROPIC_MODEL`           | `claude-opus-5-5`           |                                                                                             |
+| `CATALOGUE_ANTHROPIC_TIMEOUT_SECONDS` | `20`                        | Total curation budget, retries included                                                     |
+| `CATALOGUE_KEYWORD_DELAY_MS`          | `0`                         | Simulated keyword latency. `.env.example` sets 1200 so the pending state is visible in dev. |
+| `CATALOGUE_CORS_ORIGINS`              | `["http://localhost:5173"]` | Exact origins: scheme and host, no trailing slash                                           |
+| `CATALOGUE_LOG_LEVEL`                 | `INFO`                      |                                                                                             |
+| `VITE_API_BASE_URL` (frontend)        | `http://localhost:8000`     | Committed in `frontend/.env`. `scripts/dev.mjs` and Playwright override it per profile.     |
 
 ## AI curation
 
@@ -143,6 +143,7 @@ React 19 · Vite 8 (Rolldown) · TypeScript 6 · Tailwind CSS 4 · TanStack Quer
 ## Quality
 
 There are seven test layers:
+
 - backend unit and API (pytest);
 - contract (schemathesis);
 - frontend unit and component (Vitest Browser Mode with MSW and axe);
@@ -163,6 +164,7 @@ Coverage is gated at 95 % on both sides. Husky runs lint-staged on commit, commi
   - Conventional Commits, authored by the repository owner with no AI attribution.
 
   `backend/CLAUDE.md` holds the Python API conventions: layering, error handling, adding an operation, testing. `frontend/CLAUDE.md` holds the frontend ones. Claude Code loads each when it works in that directory.
+
 - **Skills and agents.**
   - `verify-ui` drives the running app through Claude in Chrome, run by the `ui-tester` agent.
   - `verify-api` runs the live API checklist.
@@ -173,6 +175,7 @@ Coverage is gated at 95 % on both sides. Husky runs lint-staged on commit, commi
 ## README
 
 `README.md` is written for a reviewer who has only Node, pnpm and uv. It covers:
+
 1. Prerequisites. Node (version in `.nvmrc`), pnpm via Corepack, and uv, which installs Python itself.
 2. Quick start: `pnpm bootstrap`, then `pnpm dev`, with the app and `/docs` URLs.
 3. Curation modes.
@@ -188,24 +191,24 @@ Coverage is gated at 95 % on both sides. Husky runs lint-staged on commit, commi
 
 Subsystem decisions live in each spec's _Invariants & decided points_.
 
-| Decision | Why | Rejected |
-|---|---|---|
-| Monorepo run by root scripts | One `pnpm bootstrap` and one `pnpm dev`, needing Node, pnpm and uv but no container runtime | A compose file |
-| Python 3.14 via uv; FastAPI pinned to a minor version | uv provisions Python itself. FastAPI 0.x makes breaking changes in minor releases. | Poetry; requirements.txt |
-| `mypy --strict` with the Pydantic plugin | Understands pydantic-settings and Pydantic models through the plugin | pyright (false positives on `Settings` construction); ty (beta) |
-| Layering enforced by import-linter | The rubric grades separation of concerns. An executable contract keeps it from depending on review. | Convention only |
-| RFC 9457 problem details for every error | One standard shape that any client can parse | An ad-hoc error envelope |
-| camelCase on the wire | Matches the TypeScript consumer. Pydantic aliases keep Python snake_case. | snake_case JSON |
-| Synchronous curation; `201` whatever the curation outcome | The brief requires tags and summary in the 201 response, and a failed AI call must not lose the record. | Background curation with polling |
-| `anthropic` SDK 2.x | The major that defaults to API version 2026-10-21. The call shape is the same as 1.17. | 1.17 |
-| `claude-opus-5-5` at `effort: "low"`, configurable | Anthropic's recommended model as of 2026-10. Curation is a short classification, so low effort bounds latency and cost. | — |
-| Types generated from OpenAPI, committed, drift-checked | Backend and frontend cannot diverge silently, and frontend work does not need Python. | Hand-written types; runtime response validation |
-| TypeScript 6, not 7 | TypeScript 7 (native) has no compiler API, and typescript-eslint and openapi-typescript both depend on one. | 7 |
-| Spec-driven documentation | Sessions, human or AI, inherit decisions from one home per fact instead of re-deriving them. | One long design document |
+| Decision                                                  | Why                                                                                                                     | Rejected                                                        |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Monorepo run by root scripts                              | One `pnpm bootstrap` and one `pnpm dev`, needing Node, pnpm and uv but no container runtime                             | A compose file                                                  |
+| Python 3.14 via uv; FastAPI pinned to a minor version     | uv provisions Python itself. FastAPI 0.x makes breaking changes in minor releases.                                      | Poetry; requirements.txt                                        |
+| `mypy --strict` with the Pydantic plugin                  | Understands pydantic-settings and Pydantic models through the plugin                                                    | pyright (false positives on `Settings` construction); ty (beta) |
+| Layering enforced by import-linter                        | The rubric grades separation of concerns. An executable contract keeps it from depending on review.                     | Convention only                                                 |
+| RFC 9457 problem details for every error                  | One standard shape that any client can parse                                                                            | An ad-hoc error envelope                                        |
+| camelCase on the wire                                     | Matches the TypeScript consumer. Pydantic aliases keep Python snake_case.                                               | snake_case JSON                                                 |
+| Synchronous curation; `201` whatever the curation outcome | The brief requires tags and summary in the 201 response, and a failed AI call must not lose the record.                 | Background curation with polling                                |
+| `anthropic` SDK 2.x                                       | The major that defaults to API version 2026-10-21. The call shape is the same as 1.17.                                  | 1.17                                                            |
+| `claude-opus-5-5` at `effort: "low"`, configurable        | Anthropic's recommended model as of 2026-10. Curation is a short classification, so low effort bounds latency and cost. | —                                                               |
+| Types generated from OpenAPI, committed, drift-checked    | Backend and frontend cannot diverge silently, and frontend work does not need Python.                                   | Hand-written types; runtime response validation                 |
+| TypeScript 6, not 7                                       | TypeScript 7 (native) has no compiler API, and typescript-eslint and openapi-typescript both depend on one.             | 7                                                               |
+| Spec-driven documentation                                 | Sessions, human or AI, inherit decisions from one home per fact instead of re-deriving them.                            | One long design document                                        |
 
 ## Risks
 
 - **`anthropic` 2.x was first released on 2026-10-21.** The lockfile pins it, and 1.17 has the same call shape if a regression appears.
-- **Tooling ahead of its peers.** `eslint-plugin-jsx-a11y` declares ESLint ≤ 9 but runs correctly on ESLint 10, with the peer override recorded in `pnpm-workspace.yaml`. React Compiler 1.0 runs on Babel 7, as its own dependency requires.
+- **Tooling ahead of its peers.** `eslint-plugin-jsx-a11y` declares ESLint ≤ 9 and `openapi-typescript` declares TypeScript 5; both run correctly on ESLint 10 and TypeScript 6, with the peer overrides recorded in `pnpm-workspace.yaml`. React Compiler 1.0 runs on Babel 7, as its own dependency requires.
 
 Unmeasured curation latency and Claude in Chrome from a forked skill are tracked under _Deferred / open_ in [curation.md](../specs/curation.md) and [quality-gates.md](../specs/quality-gates.md).

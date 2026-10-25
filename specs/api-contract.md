@@ -13,17 +13,18 @@ The HTTP interface between the React app and the FastAPI backend: the brief's th
 - `backend/src/catalogue/api/problems.py`: problem+json handlers, the 405 `Allow` rebuild, the unhandled-error middleware.
 - `backend/src/catalogue/api/openapi.py`: documents error bodies under `application/problem+json`.
 - `backend/src/catalogue/app.py`: `export_openapi()`, the codegen entry point.
+- `scripts/gen-api.mjs`: runs `catalogue-openapi` and openapi-typescript. `--check` regenerates into a temporary directory and compares bytes with the committed files.
 - `frontend/openapi.json`, `frontend/src/lib/api/schema.gen.ts`: generated, committed, never edited by hand.
 - `backend/tests/api/`, `backend/tests/contract/`: the tests that pin this spec.
 
 ## Behaviour contract
 
-| Operation (operationId) | Success | Errors |
-|---|---|---|
-| `GET /datasets` (`listDatasets`) | `200` with `Dataset[]` in insertion order (oldest first) | — |
-| `POST /datasets` (`createDataset`) | `201` with `Location: /datasets/{id}` and the stored `Dataset` | `400` invalid or malformed body |
-| `DELETE /datasets/{id}` (`deleteDataset`) | `200` with the deleted `Dataset` | `404` unknown id |
-| `GET /health` (`getHealth`) | `200` with `{ "status": "ok", "curationProvider": "anthropic" \| "keyword" }` | — |
+| Operation (operationId)                   | Success                                                                       | Errors                          |
+| ----------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------- |
+| `GET /datasets` (`listDatasets`)          | `200` with `Dataset[]` in insertion order (oldest first)                      | —                               |
+| `POST /datasets` (`createDataset`)        | `201` with `Location: /datasets/{id}` and the stored `Dataset`                | `400` invalid or malformed body |
+| `DELETE /datasets/{id}` (`deleteDataset`) | `200` with the deleted `Dataset`                                              | `404` unknown id                |
+| `GET /health` (`getHealth`)               | `200` with `{ "status": "ok", "curationProvider": "anthropic" \| "keyword" }` | —                               |
 
 - **Curation never changes the status code** ([curation.md](./curation.md#invariants--decided-points)).
 - **Startup state.** Three seed records with ids `"1"`, `"2"` and `"3"`, the brief's tags and summaries, and `curation: { status: "completed", provider: "seed", detail: null }`. Their `createdAt` is the process start time.
@@ -60,11 +61,11 @@ The HTTP interface between the React app and the FastAPI backend: the brief's th
 
 ### DatasetCreate (POST body)
 
-| Field | Rule |
-|---|---|
-| `name` | string, surrounding whitespace trimmed, 1–120 characters |
-| `owner` | string, trimmed, 1–120 characters |
-| `description` | string, trimmed, 1–2000 characters |
+| Field         | Rule                                                     |
+| ------------- | -------------------------------------------------------- |
+| `name`        | string, surrounding whitespace trimmed, 1–120 characters |
+| `owner`       | string, trimmed, 1–120 characters                        |
+| `description` | string, trimmed, 1–2000 characters                       |
 
 - Lengths are counted in code points after trimming.
 - Unknown fields are rejected, so a client sending `tags` or `id` is told those fields are not accepted.
@@ -88,25 +89,25 @@ Every non-2xx response is `application/problem+json`, with `type`, `title`, `sta
 }
 ```
 
-| Situation | Status | `type` | `title` | `errors` |
-|---|---|---|---|---|
-| One or more fields fail validation | 400 | `/problems/validation-error` | Invalid request body | One entry per field |
-| Body is invalid JSON or not an object, is empty, has a non-JSON `Content-Type`, or cannot be decoded | 400 | `/problems/malformed-body` | Malformed request body | `[]` |
-| Unknown dataset id | 404 | `/problems/dataset-not-found` | Dataset not found | `[]`; `detail` names the id |
-| Unknown route | 404 | `about:blank` | Not Found | `[]` |
-| Unsupported method | 405 | `about:blank` | Method Not Allowed | `[]`; complete `Allow` header |
-| Unhandled exception | 500 | `about:blank` | Internal Server Error | `[]`; generic `detail`, traceback in the log only, CORS headers present |
+| Situation                                                                                            | Status | `type`                        | `title`                | `errors`                                                                |
+| ---------------------------------------------------------------------------------------------------- | ------ | ----------------------------- | ---------------------- | ----------------------------------------------------------------------- |
+| One or more fields fail validation                                                                   | 400    | `/problems/validation-error`  | Invalid request body   | One entry per field                                                     |
+| Body is invalid JSON or not an object, is empty, has a non-JSON `Content-Type`, or cannot be decoded | 400    | `/problems/malformed-body`    | Malformed request body | `[]`                                                                    |
+| Unknown dataset id                                                                                   | 404    | `/problems/dataset-not-found` | Dataset not found      | `[]`; `detail` names the id                                             |
+| Unknown route                                                                                        | 404    | `about:blank`                 | Not Found              | `[]`                                                                    |
+| Unsupported method                                                                                   | 405    | `about:blank`                 | Method Not Allowed     | `[]`; complete `Allow` header                                           |
+| Unhandled exception                                                                                  | 500    | `about:blank`                 | Internal Server Error  | `[]`; generic `detail`, traceback in the log only, CORS headers present |
 
 A `RequestValidationError` counts as **malformed** when any of its errors has type `json_invalid` or location `("body",)`. Otherwise each error becomes one `errors[]` entry with `field` set to `loc[1]`, the camelCase body property (`"name"`, not `"body.name"`). FastAPI's own `HTTPException(400)` for an undecodable body also counts as malformed.
 
-| Pydantic error | `message` |
-|---|---|
-| `missing` | This field is required. |
-| `string_too_short` (including blank after trimming) | This field must not be blank. |
-| `string_too_long` | This field must be at most {max} characters. |
-| `string_type` | This field must be a string. |
-| `extra_forbidden` | This field is not allowed. |
-| anything else | Pydantic's own message |
+| Pydantic error                                      | `message`                                    |
+| --------------------------------------------------- | -------------------------------------------- |
+| `missing`                                           | This field is required.                      |
+| `string_too_short` (including blank after trimming) | This field must not be blank.                |
+| `string_too_long`                                   | This field must be at most {max} characters. |
+| `string_type`                                       | This field must be a string.                 |
+| `extra_forbidden`                                   | This field is not allowed.                   |
+| anything else                                       | Pydantic's own message                       |
 
 ## Invariants & decided points
 
@@ -121,6 +122,7 @@ A `RequestValidationError` counts as **malformed** when any of its errors has ty
   - The path parameter is `id`.
 
   Renaming any of these is a contract change.
+
 - **Three framework overrides:**
   - `RequestValidationError` and FastAPI's body-parse `HTTPException(400)` both map to the 400 problems above. The brief requires 400; FastAPI defaults to 422.
   - A 405 rebuilds `Allow` from every route that matches the path. Starlette lists only the first route it matched, which breaks RFC 9110.
