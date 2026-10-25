@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
+  "permissions": {
+    "allow": [
+      "Bash(pnpm check)",
+      "Bash(pnpm check:api)",
+      "Bash(pnpm check:web)",
+      "Bash(pnpm test:e2e)",
+      "Bash(pnpm verify:api *)",
+      "Bash(pnpm gen:api)",
+      "Bash(pnpm format)",
+      "Bash(curl -sf http://localhost:8000/health)",
+      "Bash(curl -sf http://localhost:8000/datasets)",
+      "Bash(curl -sf http://localhost:8100/health)",
+      "Bash(curl -sf http://localhost:8100/datasets)"
+    ]
+  }
+}
