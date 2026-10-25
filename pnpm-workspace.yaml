@@ -1,0 +1,8 @@
+packages:
+  - frontend
+
+peerDependencyRules:
+  allowedVersions:
+    # Both run correctly on these majors; their declared peer ranges have not caught up yet.
+    eslint-plugin-jsx-a11y>eslint: '10'
+    openapi-typescript>typescript: '6'

@@ -6,3 +6,25 @@ README.txt
 # Session working files (plans, notes) stay out of the repository.
 .claude/plans/
 .claude/settings.local.json
+
+# Local configuration; backend/.env can hold an Anthropic API key.
+backend/.env
+frontend/.env.local
+
+node_modules/
+.venv/
+dist/
+coverage/
+.coverage
+.vitest/
+playwright-report/
+test-results/
+__screenshots__/
+.hypothesis/
+.import_linter_cache/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.log
