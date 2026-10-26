@@ -78,3 +78,16 @@ class TickingClock:
         reading = self.START + timedelta(seconds=len(self.readings))
         self.readings.append(reading)
         return reading
+
+
+class ManualClock:
+    """A monotonic clock, in seconds, that moves only when the test advances it."""
+
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds

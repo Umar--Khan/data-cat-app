@@ -20,6 +20,8 @@ def test_defaults_match_the_configuration_table(monkeypatch: pytest.MonkeyPatch)
     assert settings.anthropic_workspace_id is None
     assert settings.anthropic_model == "claude-opus-5-5"
     assert settings.anthropic_timeout_seconds == 20
+    assert settings.anthropic_max_concurrency == 4
+    assert settings.create_rate_limit_per_minute == 10
     assert settings.keyword_delay_ms == 0
     assert settings.cors_origins == ["http://localhost:5173"]
     assert settings.log_level == "INFO"
@@ -78,6 +80,8 @@ def test_app_settings_are_read_with_the_catalogue_prefix(monkeypatch: pytest.Mon
     monkeypatch.setenv("CATALOGUE_CURATION_PROVIDER", "keyword")
     monkeypatch.setenv("CATALOGUE_ANTHROPIC_MODEL", "claude-test-model")
     monkeypatch.setenv("CATALOGUE_ANTHROPIC_TIMEOUT_SECONDS", "2.5")
+    monkeypatch.setenv("CATALOGUE_ANTHROPIC_MAX_CONCURRENCY", "2")
+    monkeypatch.setenv("CATALOGUE_CREATE_RATE_LIMIT_PER_MINUTE", "1000")
     monkeypatch.setenv("CATALOGUE_KEYWORD_DELAY_MS", "1200")
     monkeypatch.setenv("CATALOGUE_CORS_ORIGINS", '["http://localhost:5180"]')
     monkeypatch.setenv("CATALOGUE_LOG_LEVEL", "DEBUG")
@@ -87,6 +91,8 @@ def test_app_settings_are_read_with_the_catalogue_prefix(monkeypatch: pytest.Mon
     assert settings.curation_provider == "keyword"
     assert settings.anthropic_model == "claude-test-model"
     assert settings.anthropic_timeout_seconds == 2.5
+    assert settings.anthropic_max_concurrency == 2
+    assert settings.create_rate_limit_per_minute == 1000
     assert settings.keyword_delay_ms == 1200
     assert settings.cors_origins == ["http://localhost:5180"]
     assert settings.log_level == "DEBUG"
@@ -138,6 +144,9 @@ def test_explicit_anthropic_with_a_key_is_valid() -> None:
     [
         ("CATALOGUE_CURATION_PROVIDER", "claude"),
         ("CATALOGUE_ANTHROPIC_TIMEOUT_SECONDS", "0"),
+        ("CATALOGUE_ANTHROPIC_MAX_CONCURRENCY", "0"),
+        ("CATALOGUE_ANTHROPIC_MAX_CONCURRENCY", "65"),
+        ("CATALOGUE_CREATE_RATE_LIMIT_PER_MINUTE", "0"),
         ("CATALOGUE_KEYWORD_DELAY_MS", "-1"),
         ("CATALOGUE_KEYWORD_DELAY_MS", "10001"),
         ("CATALOGUE_LOG_LEVEL", "VERBOSE"),

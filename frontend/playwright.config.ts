@@ -31,6 +31,9 @@ export default defineConfig({
         CATALOGUE_CURATION_PROVIDER: 'keyword',
         CATALOGUE_KEYWORD_DELAY_MS: '0',
         CATALOGUE_CORS_ORIGINS: JSON.stringify([webUrl]),
+        // Every test creates from this one address, so the default of 10 a minute would throttle
+        // the suite.
+        CATALOGUE_CREATE_RATE_LIMIT_PER_MINUTE: '1000',
       },
       reuseExistingServer: false,
     },

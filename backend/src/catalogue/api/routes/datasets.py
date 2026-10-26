@@ -1,8 +1,9 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Path, Request, Response, status
+from fastapi import APIRouter, Depends, Path, Request, Response, status
 
-from catalogue.api.deps import DatasetServiceDep
+from catalogue.api.deps import DatasetServiceDep, limit_create_rate
+from catalogue.api.limits import MAX_BODY_BYTES
 from catalogue.api.openapi import problem
 from catalogue.api.schemas import Dataset, DatasetCreate
 from catalogue.domain.models import NewDataset
@@ -19,6 +20,8 @@ async def list_datasets(datasets: DatasetServiceDep) -> list[Dataset]:
     "",
     status_code=status.HTTP_201_CREATED,
     summary="Register a dataset, curate it and store it",
+    # Each create can be a billed Claude call, so it is the one operation worth rate limiting.
+    dependencies=[Depends(limit_create_rate)],
     responses={
         status.HTTP_201_CREATED: {
             "description": "Stored, whether or not curation succeeded. `curation` says which.",
@@ -31,6 +34,19 @@ async def list_datasets(datasets: DatasetServiceDep) -> list[Dataset]:
             },
         },
         status.HTTP_400_BAD_REQUEST: problem("The body is malformed or has invalid fields"),
+        status.HTTP_413_CONTENT_TOO_LARGE: problem(
+            f"The body is larger than {MAX_BODY_BYTES} bytes"
+        ),
+        status.HTTP_429_TOO_MANY_REQUESTS: {
+            **problem("This client has added too many datasets in the last minute"),
+            "headers": {
+                "Retry-After": {
+                    "description": "Whole seconds until this client may add another dataset",
+                    "required": True,
+                    "schema": {"type": "integer"},
+                }
+            },
+        },
         "4XX": problem("Client error"),
     },
 )

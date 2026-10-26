@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from pydantic.alias_generators import to_camel
 
 from catalogue.api.deps import LifespanState
+from catalogue.api.limits import BodySizeLimitMiddleware, RateLimiter
 from catalogue.api.openapi import CatalogueAPI
 from catalogue.api.problems import UnhandledErrorMiddleware, exception_handlers
 from catalogue.api.routes import datasets, health
@@ -33,6 +34,7 @@ def create_app(
     *,
     repository: DatasetRepository | None = None,
     curation_provider: CurationProvider | None = None,
+    rate_limiter: RateLimiter | None = None,
     clock: Clock = utc_now,
 ) -> FastAPI:
     """Build the app. Whatever is not injected, the lifespan builds from settings at startup."""
@@ -68,9 +70,13 @@ def create_app(
             store = repository
             if store is None:
                 store = InMemoryDatasetRepository(seed_datasets(clock()))
+            limiter = rate_limiter
+            if limiter is None:
+                limiter = RateLimiter(settings.create_rate_limit_per_minute)
             yield {
                 "datasets": DatasetService(store, CurationService(provider), clock),
                 "curation_provider_name": provider.name,
+                "create_rate_limiter": limiter,
             }
 
     app = CatalogueAPI(
@@ -83,15 +89,16 @@ def create_app(
         # the Host header. An unknown path gets a 404 problem like any other.
         redirect_slashes=False,
     )
-    # Middleware added later wraps middleware added earlier, so CORS wraps the error middleware
-    # and a 500 problem still carries CORS headers.
+    # Middleware added later wraps middleware added earlier, so CORS wraps the other two, and a
+    # 413 or 500 problem still carries CORS headers.
+    app.add_middleware(BodySizeLimitMiddleware)
     app.add_middleware(UnhandledErrorMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_methods=["GET", "POST", "DELETE"],
         allow_headers=["Content-Type"],
-        expose_headers=["Location"],
+        expose_headers=["Location", "Retry-After"],
     )
     app.include_router(datasets.router)
     app.include_router(health.router)

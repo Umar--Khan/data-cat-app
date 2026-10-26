@@ -30,7 +30,7 @@ sequenceDiagram
   participant P as Provider
   participant Repo
   UI->>Route: {name, owner, description}
-  Note over Route: invalid body → 400 problem
+  Note over Route: body over 32 KiB → 413, over the rate → 429, invalid → 400
   Route->>DS: create(NewDataset)
   DS->>CS: curate(new)
   CS->>P: curate(new), 20 s budget
@@ -64,15 +64,15 @@ package.json          root scripts; husky, lint-staged, commitlint, Prettier
 
 A module imports only from layers below it, and `curation` and `repositories` never import each other. Only `api` and `app` import FastAPI or Starlette, only `curation` imports the Anthropic SDK, `domain` imports no framework at all (not even Pydantic), and only `app.py` and `curation/factory.py` name concrete implementations. import-linter enforces these contracts in `pnpm check`.
 
-| Package         | Owns                                                                                                            |
-| --------------- | --------------------------------------------------------------------------------------------------------------- |
-| `app.py`        | `create_app()`, the composition root: settings, lifespan, middleware, routers. `export_openapi()` for codegen.  |
-| `api/`          | Routes, camelCase wire schemas, problem+json handlers, dependency providers, OpenAPI customisation              |
-| `services/`     | `DatasetService`: list; create (curate, then store); delete (missing id raises a domain error)                  |
-| `curation/`     | Provider protocol, Claude and keyword providers, the `CurationService` failure boundary, normalisation, prompt  |
-| `repositories/` | `DatasetRepository` protocol, the in-memory implementation, seed records                                        |
-| `domain/`       | Frozen dataclasses (`NewDataset`, `Curation`, `CuratedDataset`, `Dataset`), field limits, literal types, errors |
-| `core/`         | Settings (pydantic-settings) and logging                                                                        |
+| Package         | Owns                                                                                                               |
+| --------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `app.py`        | `create_app()`, the composition root: settings, lifespan, middleware, routers. `export_openapi()` for codegen.     |
+| `api/`          | Routes, camelCase wire schemas, problem+json handlers, dependency providers, request limits, OpenAPI customisation |
+| `services/`     | `DatasetService`: list; create (curate, then store); delete (missing id raises a domain error)                     |
+| `curation/`     | Provider protocol, Claude and keyword providers, the `CurationService` failure boundary, normalisation, prompt     |
+| `repositories/` | `DatasetRepository` protocol, the in-memory implementation, seed records                                           |
+| `domain/`       | Frozen dataclasses (`NewDataset`, `Curation`, `CuratedDataset`, `Dataset`), field limits, literal types, errors    |
+| `core/`         | Settings (pydantic-settings) and logging                                                                           |
 
 ### Models
 
@@ -80,32 +80,38 @@ Domain types are frozen, slotted dataclasses. The in-memory store hands out the 
 
 ### Dependency injection
 
-`create_app(settings=None, *, repository=None, curation_provider=None, clock=utc_now)`. The lifespan builds whatever was not injected and yields it as lifespan state. The provider comes from `open_curation_provider(settings)`, an async context manager that also closes the SDK's HTTP client on shutdown. `api/deps.py` is the only reader of that state. Tests pass fakes as arguments and still run the real lifespan through `TestClient`, so there are no `dependency_overrides`. Uvicorn starts the app with `--factory`, so importing the module has no side effects.
+`create_app(settings=None, *, repository=None, curation_provider=None, rate_limiter=None, clock=utc_now)`. The lifespan builds whatever was not injected and yields it as lifespan state, so every startup begins with an empty rate limiter as well as the seeds. The provider comes from `open_curation_provider(settings)`, an async context manager that also closes the SDK's HTTP client on shutdown. `api/deps.py` is the only reader of that state. Tests pass fakes as arguments and still run the real lifespan through `TestClient`, so there are no `dependency_overrides`. Uvicorn starts the app with `--factory`, so importing the module has no side effects.
 
 ### Errors
 
-Every non-2xx response is RFC 9457 problem+json, except the `400 text/plain` that `CORSMiddleware` gives a preflight it rejects. Three framework overrides are needed to get there: 400 instead of 422 for invalid bodies, a complete `Allow` header on 405, and CORS headers on unhandled 500s. The mapping and the reasons are in [specs/api-contract.md](../specs/api-contract.md).
+Every non-2xx response is RFC 9457 problem+json, except the `400 text/plain` that `CORSMiddleware` gives a preflight it rejects. Three framework overrides are needed to get there: 400 instead of 422 for invalid bodies, a complete `Allow` header on 405, and CORS headers on unhandled 500s. The body size limit is a middleware of the app's own for the same reason: its 413 is raised inside the app, so it is a problem with CORS headers. The mapping and the reasons are in [specs/api-contract.md](../specs/api-contract.md).
+
+### Request limits
+
+A body over 32 KiB is refused before it is buffered, `POST /datasets` has a token-bucket rate limit per client address, and the Claude provider caps the calls in flight. Together they bound what one client, and all clients together, can spend on Claude. Distributed denial of service is left to the edge. The limits are in [specs/api-contract.md](../specs/api-contract.md#request-limits) and the concurrency cap in [specs/curation.md](../specs/curation.md#claude-request).
 
 ### State and concurrency
 
-There is one uvicorn worker and routes are async. The repository protocol is `async`, so a store that does I/O could implement it, but the in-memory store never awaits inside a method, so each call runs to completion on the event loop without a lock; its tests drive every call in one step to prove it. `add()` takes a `CuratedDataset`, assigns the id and stores the record in one call (INSERT … RETURNING), so the protocol has no read-then-write step that any implementation would need to lock. Id and restart behaviour are in [specs/api-contract.md](../specs/api-contract.md#behaviour-contract).
+There is one uvicorn worker and routes are async. The repository protocol is `async`, so a store that does I/O could implement it, but the in-memory store never awaits inside a method, so each call runs to completion on the event loop without a lock; its tests drive every call in one step to prove it. `add()` takes a `CuratedDataset`, assigns the id and stores the record in one call (INSERT … RETURNING), so the protocol has no read-then-write step that any implementation would need to lock. The rate limiter is synchronous for the same reason. Id and restart behaviour are in [specs/api-contract.md](../specs/api-contract.md#behaviour-contract).
 
 ### Configuration
 
 pydantic-settings reads the environment first and then `backend/.env`, resolved from the package rather than the working directory. An unknown key in `backend/.env` fails startup, so a misspelt `CATALOGUE_CURATION_PROVIDER` cannot silently fall back to `auto`. The startup message lists each failing setting and its error but never the value, because a misspelt key's value may be the API key. `.env.example` leaves the code defaults commented out, so a later change to a default reaches existing checkouts. App settings use the `CATALOGUE_` prefix. The Anthropic variables keep their conventional names and reach the SDK only through Settings ([provider selection](../specs/curation.md#provider-selection)).
 
-| Variable                              | Default                     | Purpose                                                                                     |
-| ------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------- |
-| `CATALOGUE_CURATION_PROVIDER`         | `auto`                      | `auto`, `keyword` or `anthropic`                                                            |
-| `ANTHROPIC_API_KEY`                   | unset                       | Enables Claude under `auto`. A key exported in the shell counts too.                        |
-| `ANTHROPIC_BASE_URL`                  | `https://api.anthropic.com` | API host                                                                                    |
-| `ANTHROPIC_WORKSPACE_ID`              | unset                       | Workspace for a key not scoped to one; sent as the `anthropic-workspace-id` header          |
-| `CATALOGUE_ANTHROPIC_MODEL`           | `claude-opus-5-5`           |                                                                                             |
-| `CATALOGUE_ANTHROPIC_TIMEOUT_SECONDS` | `20`                        | Total curation budget, retries included                                                     |
-| `CATALOGUE_KEYWORD_DELAY_MS`          | `0`                         | Simulated keyword latency. `.env.example` sets 1200 so the pending state is visible in dev. |
-| `CATALOGUE_CORS_ORIGINS`              | `["http://localhost:5173"]` | Exact origins: scheme and host, no trailing slash                                           |
-| `CATALOGUE_LOG_LEVEL`                 | `INFO`                      |                                                                                             |
-| `VITE_API_BASE_URL` (frontend)        | `http://localhost:8000`     | Committed in `frontend/.env`. `scripts/dev.mjs` and Playwright override it per profile.     |
+| Variable                                 | Default                     | Purpose                                                                                             |
+| ---------------------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------- |
+| `CATALOGUE_CURATION_PROVIDER`            | `auto`                      | `auto`, `keyword` or `anthropic`                                                                    |
+| `ANTHROPIC_API_KEY`                      | unset                       | Enables Claude under `auto`. A key exported in the shell counts too.                                |
+| `ANTHROPIC_BASE_URL`                     | `https://api.anthropic.com` | API host                                                                                            |
+| `ANTHROPIC_WORKSPACE_ID`                 | unset                       | Workspace for a key not scoped to one; sent as the `anthropic-workspace-id` header                  |
+| `CATALOGUE_ANTHROPIC_MODEL`              | `claude-opus-5-5`           |                                                                                                     |
+| `CATALOGUE_ANTHROPIC_TIMEOUT_SECONDS`    | `20`                        | Total curation budget, retries and waiting for a free slot included                                 |
+| `CATALOGUE_ANTHROPIC_MAX_CONCURRENCY`    | `4`                         | Claude calls in flight at once, 1 to 64; further creates queue inside the budget                    |
+| `CATALOGUE_CREATE_RATE_LIMIT_PER_MINUTE` | `10`                        | `POST /datasets` per client address per minute, with bursts of the same size. Playwright sets 1000. |
+| `CATALOGUE_KEYWORD_DELAY_MS`             | `0`                         | Simulated keyword latency. `.env.example` sets 1200 so the pending state is visible in dev.         |
+| `CATALOGUE_CORS_ORIGINS`                 | `["http://localhost:5173"]` | Exact origins: scheme and host, no trailing slash                                                   |
+| `CATALOGUE_LOG_LEVEL`                    | `INFO`                      |                                                                                                     |
+| `VITE_API_BASE_URL` (frontend)           | `http://localhost:8000`     | Committed in `frontend/.env`. `scripts/dev.mjs` and Playwright override it per profile.             |
 
 ## AI curation
 

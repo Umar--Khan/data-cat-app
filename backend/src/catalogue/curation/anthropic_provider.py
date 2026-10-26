@@ -78,32 +78,39 @@ class AnthropicCurationProvider:
         *,
         model: str,
         timeout_seconds: float,
+        max_concurrency: int,
     ) -> None:
         self.model: Final = model
         self._client = client
         self._budget = timeout_seconds
         self._fallback = model in FALLBACK_MODELS
+        # Every call is billed, so however many creates arrive at once, only this many calls are
+        # in flight; the rest queue here.
+        self._slots = asyncio.Semaphore(max_concurrency)
 
     async def curate(self, new: NewDataset) -> CurationDraft:
         try:
             async with asyncio.timeout(self._budget):
-                # The raw response outlives a ValidationError from parsing, so the log can still
-                # say what Claude stopped on and which request it was.
-                response = await self._client.beta.messages.with_raw_response.parse(
-                    model=self.model,
-                    max_tokens=_MAX_TOKENS,
-                    system=_SYSTEM,
-                    messages=[{"role": "user", "content": render_dataset(new)}],
-                    output_config={"effort": "low"},
-                    output_format=_ClaudeCuration,
-                    betas=[_FALLBACK_BETA] if self._fallback else omit,
-                    fallbacks="default" if self._fallback else omit,
-                )
-                try:
-                    message = await response.parse()
-                except ValidationError:
-                    _log_unparseable(response)
-                    raise
+                # Waiting for a slot spends the same budget, so a create queued behind a burst is
+                # saved as a timed-out curation instead of waiting without limit.
+                async with self._slots:
+                    # The raw response outlives a ValidationError from parsing, so the log can
+                    # still say what Claude stopped on and which request it was.
+                    response = await self._client.beta.messages.with_raw_response.parse(
+                        model=self.model,
+                        max_tokens=_MAX_TOKENS,
+                        system=_SYSTEM,
+                        messages=[{"role": "user", "content": render_dataset(new)}],
+                        output_config={"effort": "low"},
+                        output_format=_ClaudeCuration,
+                        betas=[_FALLBACK_BETA] if self._fallback else omit,
+                        fallbacks="default" if self._fallback else omit,
+                    )
+                    try:
+                        message = await response.parse()
+                    except ValidationError:
+                        _log_unparseable(response)
+                        raise
         except (TimeoutError, APITimeoutError) as error:
             raise CurationError(CurationFailure.TIMEOUT) from error
         except APIConnectionError as error:

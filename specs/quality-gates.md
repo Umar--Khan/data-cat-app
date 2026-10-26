@@ -74,7 +74,7 @@ Three jobs run in parallel on pushes to `main` and on pull requests, each with a
 ### E2E harness
 
 - **Servers.** Playwright starts its own servers and never reuses one (`reuseExistingServer: false`), so a running `pnpm dev` holding a real key is never touched:
-  - the API on :8001 with `CATALOGUE_CURATION_PROVIDER=keyword`, a keyword delay of 0, and `CATALOGUE_CORS_ORIGINS=["http://localhost:4173"]`;
+  - the API on :8001 with `CATALOGUE_CURATION_PROVIDER=keyword`, a keyword delay of 0, `CATALOGUE_CORS_ORIGINS=["http://localhost:4173"]`, and `CATALOGUE_CREATE_RATE_LIMIT_PER_MINUTE=1000`, because every test creates from the same address;
   - the web app built with `VITE_API_BASE_URL=http://localhost:8001`, then served by `vite preview` on :4173.
 
   E2E therefore exercises the compiled production build.

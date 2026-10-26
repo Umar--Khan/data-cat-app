@@ -4,6 +4,7 @@ Why the SDK runs for real, and which of its behaviours these cases pin, is in sp
 under "Claude provider tests".
 """
 
+import asyncio
 import json
 import logging
 import time
@@ -75,8 +76,35 @@ class FakeAnthropicApi:
         return json.loads(self.requests[-1].content)
 
 
+class SlowAnthropicApi:
+    """Answers every request with a completed draft after `delay` seconds, counting calls in flight.
+
+    The handler is async, so requests overlap the way they would against the real API.
+    """
+
+    def __init__(self, delay: float) -> None:
+        self._delay = delay
+        self.received = 0
+        self.in_flight = 0
+        self.most_in_flight = 0
+
+    async def __call__(self, _request: httpx2.Request) -> httpx2.Response:
+        self.received += 1
+        self.in_flight += 1
+        self.most_in_flight = max(self.most_in_flight, self.in_flight)
+        try:
+            await asyncio.sleep(self._delay)
+        finally:
+            self.in_flight -= 1
+        return completed()
+
+
 def make_settings(
-    *, model: str = "claude-opus-5-5", timeout: float = 20, workspace: str | None = None
+    *,
+    model: str = "claude-opus-5-5",
+    timeout: float = 20,
+    workspace: str | None = None,
+    concurrency: int = 4,
 ) -> Settings:
     return Settings(
         _env_file=None,
@@ -86,6 +114,7 @@ def make_settings(
         ANTHROPIC_WORKSPACE_ID=workspace,
         anthropic_model=model,
         anthropic_timeout_seconds=timeout,
+        anthropic_max_concurrency=concurrency,
     )
 
 
@@ -137,7 +166,7 @@ def api_error(
 
 @asynccontextmanager
 async def open_provider(
-    api: FakeAnthropicApi, settings: Settings
+    api: FakeAnthropicApi | SlowAnthropicApi, settings: Settings
 ) -> AsyncIterator[AnthropicCurationProvider]:
     http_client = DefaultAsyncHttpxClient(transport=httpx2.MockTransport(api))
     async with build_client(settings, http_client=http_client) as client:
@@ -145,6 +174,7 @@ async def open_provider(
             client,
             model=settings.anthropic_model,
             timeout_seconds=settings.anthropic_timeout_seconds,
+            max_concurrency=settings.anthropic_max_concurrency,
         )
 
 
@@ -447,6 +477,37 @@ async def test_the_budget_cuts_off_an_uncapped_retry_after() -> None:
     assert type(failure.__cause__) is TimeoutError
     assert time.monotonic() - started < 1
     assert len(api.requests) == 1
+
+
+@pytest.mark.anyio
+async def test_no_more_calls_are_in_flight_than_the_concurrency_allows() -> None:
+    api = SlowAnthropicApi(delay=0.02)
+
+    async with open_provider(api, make_settings(concurrency=2)) as provider:
+        drafts = await asyncio.gather(*(provider.curate(TRADE_CONFIRMATIONS) for _ in range(5)))
+
+    assert drafts == [DRAFT] * 5
+    assert api.received == 5
+    assert api.most_in_flight == 2
+
+
+@pytest.mark.anyio
+async def test_waiting_for_a_free_slot_spends_the_budget_and_ends_as_a_timeout() -> None:
+    # The first call holds the only slot for 0.2 s of a 0.3 s budget, so the second, queued
+    # behind it, cannot finish its own 0.2 s call in time.
+    api = SlowAnthropicApi(delay=0.2)
+
+    async with open_provider(api, make_settings(timeout=0.3, concurrency=1)) as provider:
+        first, second = await asyncio.gather(
+            provider.curate(TRADE_CONFIRMATIONS),
+            provider.curate(TRADE_CONFIRMATIONS),
+            return_exceptions=True,
+        )
+
+    assert first == DRAFT
+    assert isinstance(second, CurationError)
+    assert second.failure is CurationFailure.TIMEOUT
+    assert type(second.__cause__) is TimeoutError
 
 
 @pytest.mark.anyio

@@ -127,11 +127,11 @@ def test_cors_preflight_allows_a_configured_origin(client: TestClient) -> None:
     }
 
 
-def test_cors_exposes_location_to_a_configured_origin(client: TestClient) -> None:
+def test_cors_exposes_location_and_retry_after_to_a_configured_origin(client: TestClient) -> None:
     response = client.get("/health", headers={"Origin": "http://localhost:5173"})
 
     assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
-    assert response.headers["access-control-expose-headers"] == "Location"
+    assert response.headers["access-control-expose-headers"] == "Location, Retry-After"
 
 
 def test_cors_ignores_an_unlisted_origin(client: TestClient) -> None:

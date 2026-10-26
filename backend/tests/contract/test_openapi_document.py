@@ -87,7 +87,7 @@ def test_every_response_field_is_required(document: dict[str, Any]) -> None:
     ("method", "path", "statuses"),
     [
         ("GET", "/datasets", ["200"]),
-        ("POST", "/datasets", ["201", "400", "4XX"]),
+        ("POST", "/datasets", ["201", "400", "413", "429", "4XX"]),
         ("DELETE", "/datasets/{id}", ["200", "404", "4XX"]),
         ("GET", "/health", ["200"]),
     ],
@@ -106,13 +106,20 @@ def test_error_bodies_are_documented_as_problem_json(document: dict[str, Any]) -
         if not status.startswith("2")
     ]
 
-    assert errors == [PROBLEM] * 4
+    assert errors == [PROBLEM] * 6
 
 
 def test_create_documents_the_location_header(document: dict[str, Any]) -> None:
     created = document["paths"]["/datasets"]["post"]["responses"]["201"]
 
     assert created["headers"]["Location"]["required"] is True
+
+
+def test_create_documents_retry_after_on_a_429(document: dict[str, Any]) -> None:
+    throttled = document["paths"]["/datasets"]["post"]["responses"]["429"]
+
+    assert throttled["headers"]["Retry-After"]["required"] is True
+    assert throttled["headers"]["Retry-After"]["schema"] == {"type": "integer"}
 
 
 def test_the_served_document_stays_the_same_across_requests(settings: Settings) -> None:

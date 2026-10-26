@@ -308,6 +308,35 @@
             },
             "description": "The body is malformed or has invalid fields"
           },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "The body is larger than 32768 bytes"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "This client has added too many datasets in the last minute",
+            "headers": {
+              "Retry-After": {
+                "description": "Whole seconds until this client may add another dataset",
+                "required": true,
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
           "4XX": {
             "content": {
               "application/problem+json": {

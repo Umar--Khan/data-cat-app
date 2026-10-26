@@ -59,6 +59,7 @@ async def open_curation_provider(settings: Settings) -> AsyncIterator[CurationPr
                 client,
                 model=settings.anthropic_model,
                 timeout_seconds=settings.anthropic_timeout_seconds,
+                max_concurrency=settings.anthropic_max_concurrency,
             )
     else:
         yield KeywordCurationProvider(delay_ms=settings.keyword_delay_ms)

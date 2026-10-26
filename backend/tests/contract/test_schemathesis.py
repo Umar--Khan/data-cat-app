@@ -17,12 +17,17 @@ from catalogue.core.config import Settings
 
 
 @pytest.fixture
-def api_schema(settings: Settings) -> OpenApiSchema:
+def api_schema() -> OpenApiSchema:
     """The real app with the keyword provider, built after the environment is isolated.
 
     Loading the schema in a fixture rather than at import time is what lets the autouse
-    `isolated_environment` fixture run first.
+    `isolated_environment` fixture run first. Every generated request comes from one address, so
+    the create rate limit is raised past what a run sends; a 429 would only stand in for the
+    operation under test.
     """
+    settings = Settings(
+        _env_file=None, curation_provider="keyword", create_rate_limit_per_minute=100_000
+    )
     return schemathesis.openapi.from_asgi("/openapi.json", create_app(settings))
 
 

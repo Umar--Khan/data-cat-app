@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     )
     anthropic_model: str = "claude-opus-5-5"
     anthropic_timeout_seconds: float = Field(default=20, gt=0)
+    # Every call is billed. At 2 to 4 s a curation, four in flight still clear a burst of about
+    # twenty creates inside the 20 s budget, far more than a team registering datasets by hand.
+    anthropic_max_concurrency: int = Field(default=4, ge=1, le=64)
+    # The burst equals the rate, so one address can register this many at once and then one
+    # every 60 / rate seconds: enough for a person, and a cap on what one client spends on Claude.
+    create_rate_limit_per_minute: int = Field(default=10, ge=1)
     keyword_delay_ms: int = Field(default=0, ge=0, le=10_000)
     cors_origins: list[Origin] = ["http://localhost:5173"]
     log_level: LogLevel = "INFO"
