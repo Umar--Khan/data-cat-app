@@ -68,4 +68,4 @@ Read the spec before changing behaviour it pins. Update it in the same commit as
 | Run with reload              | `uv run uvicorn catalogue.app:create_app --factory --reload --reload-dir src`      |
 | Export OpenAPI               | `uv run catalogue-openapi --output PATH`                                           |
 
-`pnpm check:api` at the repository root runs all of these, plus the OpenAPI drift check.
+`pnpm check:api` at the repository root runs all of these, plus the OpenAPI drift check. After changing routes, validation or curation, also run `pnpm verify:api` and `pnpm verify:api --degraded` from the root: the API checklist against a real server, at no cost.

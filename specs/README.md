@@ -8,7 +8,7 @@ One kebab-case file per subsystem. No dates in filenames: git history is the cha
 
 - **Drafted before the subsystem is built** and marked _Draft_ until the code matches it.
 - **Updated in the same commit** that changes pinned behaviour. A spec that lags the code it pins is worse than no spec.
-- **The status line sits directly under the title:** `> _Draft_ · Last verified against code: not yet`, then `> Last verified against code: YYYY-MM-DD` once the code matches. If that date is more than a month old, spot-check two or three invariants against the code before trusting the rest. The `spec-auditor` agent does this on request, and before any commit that changes pinned behaviour.
+- **The status line sits directly under the title:** `> _Draft_ · Last verified against code: not yet`, then `> Last verified against code: YYYY-MM-DD` once the code matches. Before relying on a spec, list the commits it has not seen: `git log --oneline $(git log -1 --format=%h -- specs/<name>.md)..HEAD -- <its key files>`. Spot-check the invariants those commits touch; an empty list means the spec has seen every change to its code. The `spec-auditor` agent audits a spec in full on request, and before any commit that changes pinned behaviour.
 
 ## What does not live here
 

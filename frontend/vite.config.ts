@@ -30,6 +30,8 @@ export default defineConfig(({ mode }) => ({
     },
     coverage: {
       provider: 'v8',
+      // Only files short of full coverage, then the totals, so a passing run stays a few lines long.
+      reporter: [['text', { skipFull: true }], 'text-summary', 'html'],
       include: ['src/**/*.{ts,tsx}'],
       exclude: [
         'src/**/*.test.{ts,tsx}',

@@ -25,7 +25,8 @@ Run from the repository root. Focused runs (one test, watch mode) are in `backen
 | `pnpm bootstrap`    | Installs both workspaces and Playwright's Chromium; creates `backend/.env` from `.env.example` if absent |
 | `pnpm dev`          | API on :8000 with reload, web on :5173                                                                   |
 | `pnpm dev:degraded` | API on :8100 with every curation failing offline, web on :5180; runs beside `pnpm dev`                   |
-| `pnpm check`        | `check:api`, then `check:web`. The pre-push hook runs it.                                                |
+| `pnpm check`        | `check:docs`, `check:api`, then `check:web`. The pre-push hook runs it.                                  |
+| `pnpm check:docs`   | Every repository path the docs name in backticks exists                                                  |
 | `pnpm check:api`    | ruff, import-linter, mypy, pytest with the 95 % coverage gate, OpenAPI drift check                       |
 | `pnpm check:web`    | ESLint, Prettier check, `tsc -b`, Vitest with the 95 % coverage gate                                     |
 | `pnpm test:e2e`     | Playwright against the production build, on its own servers (API :8001, preview :4173)                   |
@@ -47,6 +48,7 @@ Run from the repository root. Focused runs (one test, watch mode) are in `backen
 - Comments and docstrings say why, never what. No commented-out code, no TODOs.
 - No test-only endpoints or flags.
 - Tests never call the real Anthropic API.
+- `backend/.env` can hold a real Anthropic key: never open, print or edit it. Anything that reaches Claude is billed: `pnpm verify:api --provider anthropic`, `/verify-ui live`, and creating datasets on a server whose `/health` reports `anthropic`. Run those only when asked.
 - `frontend/openapi.json` and `schema.gen.ts` change only through `pnpm gen:api`. The drift check in `pnpm check:api` fails if they differ from the backend's OpenAPI document.
 - Conventional Commits, enforced by commitlint and authored by the repository owner. No AI attribution in commits or PR descriptions; `.claude/settings.json` turns Claude Code's off.
 - Plans and working notes go under `.claude/plans/`, which is git-ignored, and the pre-commit hook refuses it even when forced.

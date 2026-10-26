@@ -23,7 +23,8 @@ What each test layer proves, the thresholds that fail a change, what the git hoo
 | `pnpm bootstrap`    | `pnpm install`, `uv sync` for the backend, installs Playwright's Chromium, and copies `backend/.env.example` to `backend/.env` if it is missing                                                                                                        |
 | `pnpm dev`          | API on :8000 (auto-reload) and Vite on :5173. Refuses to start if something already answers on the API port. Prints the active curation provider from `/health`.                                                                                       |
 | `pnpm dev:degraded` | API on :8100 with the offline failure configuration ([curation.md](./curation.md#provider-selection)) and `CATALOGUE_CORS_ORIGINS=["http://localhost:5180"]`; Vite on :5180 with `VITE_API_BASE_URL=http://localhost:8100`. Runs alongside `pnpm dev`. |
-| `pnpm check`        | `check:api`, then `check:web`. Pre-push runs this.                                                                                                                                                                                                     |
+| `pnpm check`        | `check:docs`, `check:api`, then `check:web`. Pre-push runs this.                                                                                                                                                                                       |
+| `pnpm check:docs`   | `scripts/check-doc-paths.mjs`: every root-anchored path that the specs, docs, README, CLAUDE.md files and `.claude/` Markdown name in backticks is a tracked file or directory, so a rename that misses a doc fails                                    |     |
 | `pnpm check:api`    | ruff (lint and format check), import-linter, mypy, pytest with coverage, and the OpenAPI drift check (regenerate to a temporary directory and compare with the committed files)                                                                        |
 | `pnpm check:web`    | ESLint, `prettier --check .`, `tsc -b` (app, node configs, e2e), Vitest with coverage                                                                                                                                                                  |
 | `pnpm test:e2e`     | Playwright                                                                                                                                                                                                                                             |
@@ -48,7 +49,7 @@ Three jobs run in parallel on pushes to `main` and on pull requests, each with a
 | Job        | Steps                                                                                                                                                           |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `backend`  | `pnpm check:api`                                                                                                                                                |
-| `frontend` | Install Chromium (headless shell); `pnpm check:web`; production build                                                                                           |
+| `frontend` | `pnpm check:docs`; install Chromium (headless shell); `pnpm check:web`; production build                                                                        |
 | `e2e`      | Install Chromium (headless shell); `pnpm verify:api`; `pnpm verify:api --degraded`; `pnpm test:e2e`. On failure, upload the Playwright report and test results. |
 
 ### Coverage gates
@@ -122,7 +123,7 @@ With `--provider anthropic` (a key is required; without one it stops before star
 
 ### Claude in Chrome verification
 
-**`/verify-ui`** is a skill that runs in a forked subagent (`context: fork`), so the screenshot-heavy run stays out of the invoking conversation. It drives the running app in the user's Chrome. With the argument `keyword`, servers it starts use the keyword curator; otherwise `backend/.env` decides, and with a Claude key each of the three datasets it creates on :8000 (the checklist entry, the keyboard pass's entry and the deleted-elsewhere record) is one billed call.
+**`/verify-ui`** is a skill that runs in a forked subagent (`context: fork`), so the screenshot-heavy run stays out of the invoking conversation. It drives the running app in the user's Chrome. Servers it starts use the keyword curator unless the argument is `live`; with `live`, `backend/.env` decides, and with a Claude key each of the three datasets it creates on :8000 (the checklist entry, the keyboard pass's entry and the deleted-elsewhere record) is one billed call. Against running servers that report `anthropic`, it stops unless the argument is `live`, so a billed run is always asked for by name.
 
 1. **Preflight.** If nothing is listening on :8000 and :5173, it starts the API and Vite itself, as two processes with the commands `scripts/dev.mjs` uses (the API without `--reload`), so step 5 can stop and restart the API alone (`pnpm dev` stops both when either exits). If the servers are already running, it checks that `GET /datasets` returns exactly the three seeds, and asks for a restart if not. The provider from `/health` goes in the report header.
 2. **The brief's frontend checklist.** The delete step removes only the record the run created.

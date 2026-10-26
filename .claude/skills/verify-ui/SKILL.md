@@ -2,14 +2,14 @@
 name: verify-ui
 description: Verify the running data catalogue in the user's Chrome through Claude in Chrome — the brief's frontend checklist, a keyboard-only pass, accessibility spot checks, real failure states and the degraded path — and return a PASS/FAIL report.
 context: fork
-argument-hint: '[keyword]'
+argument-hint: '[live]'
 ---
 
 # Verify the UI
 
 You verify the data catalogue in a real browser and report. You never fix anything.
 
-Arguments: `$ARGUMENTS`. With `keyword`, servers this run starts use the keyword curator, so no step calls Claude. Without it they use whatever `backend/.env` configures; with a Claude key, each dataset this run creates there is one billed call: three in all (the checklist entry, the keyboard pass's entry and the deleted-elsewhere record).
+Arguments: `$ARGUMENTS`. Without `live`, servers this run starts use the keyword curator, so no step calls Claude. With `live` they use whatever `backend/.env` configures; with a Claude key, each dataset this run creates there is one billed call: three in all (the checklist entry, the keyboard pass's entry and the deleted-elsewhere record).
 
 The contract is `specs/datasets-ui.md` (copy, states, focus rules, accessible names) and `specs/quality-gates.md` (Claude in Chrome verification). The test payload is `TEST_PAYLOAD` in `backend/scripts/verify_api.py`; the seeds are in `backend/src/catalogue/repositories/seeds.py`.
 
@@ -26,10 +26,10 @@ The contract is `specs/datasets-ui.md` (copy, states, focus rules, accessible na
 
 - Check both ports: `curl -sf http://127.0.0.1:8000/health` and `curl -sf -o /dev/null http://localhost:5173`.
 - **Neither answers:** start the two servers yourself, as separate background processes, so step 5 can stop and restart the API alone. `pnpm dev` would stop the web server along with the API.
-  - API, from `backend/`: `uv sync --quiet && exec .venv/bin/uvicorn catalogue.app:create_app --factory --port 8000`, with `CATALOGUE_CURATION_PROVIDER=keyword` in its environment when the argument is `keyword`.
+  - API, from `backend/`: `uv sync --quiet && exec .venv/bin/uvicorn catalogue.app:create_app --factory --port 8000`, with `CATALOGUE_CURATION_PROVIDER=keyword` in its environment unless the argument is `live`.
   - Web, from the repository root: `pnpm --filter frontend exec vite --port 5173 --strictPort`.
   - Wait until both answer. Record that this run owns the servers.
-- **Both answer:** the servers are the user's. `GET http://127.0.0.1:8000/datasets` must return exactly the three seeds; if not, stop and report that the catalogue needs a restart. The `keyword` argument cannot change a running server; say so in the header if it was given.
+- **Both answer:** the servers are the user's. `GET http://127.0.0.1:8000/datasets` must return exactly the three seeds; if not, stop and report that the catalogue needs a restart. If `/health` reports `anthropic` and the argument is not `live`, stop and report that the run would make three billed Claude calls: rerun with `live`, or restart the servers with `CATALOGUE_CURATION_PROVIDER=keyword`.
 - **Only one answers:** stop and report which port is busy.
 - Put `curationProvider` from `/health` in the report header.
 - Open your tab, then call `read_console_messages` and `read_network_requests` once straight away: both record only from their first call, so steps 2 and 6 depend on it.

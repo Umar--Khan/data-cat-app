@@ -23,6 +23,8 @@ export default defineConfig(
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },
+    // CLAUDE.md allows no TODOs; this makes the rule fail at commit instead of in review.
+    rules: { 'no-warning-comments': ['error', { terms: ['todo', 'fixme', 'xxx', 'hack'] }] },
   },
   {
     files: ['src/**/*.{ts,tsx}'],

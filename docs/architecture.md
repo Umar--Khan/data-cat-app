@@ -159,37 +159,7 @@ Coverage is gated at 95 % on both sides. Husky runs lint-staged on commit, commi
 
 ## Working on this repo with Claude Code
 
-- **Spec-driven.** `specs/` holds one living contract per subsystem. The lifecycle and section template are in [specs/README.md](../specs/README.md).
-- **CLAUDE.md.** The root file holds commands, where truth lives and the rules that hold everywhere:
-  - comments and docstrings say why, never what;
-  - no commented-out code;
-  - no test-only endpoints or flags;
-  - generated files are never edited by hand;
-  - Conventional Commits, authored by the repository owner with no AI attribution.
-
-  `backend/CLAUDE.md` holds the Python API conventions: layering, error handling, adding an operation, testing. `frontend/CLAUDE.md` holds the frontend ones. Claude Code loads each when it works in that directory.
-
-- **Skills and agents.**
-  - `verify-ui` drives the running app through Claude in Chrome, in a forked subagent.
-  - `verify-api` runs the live API checklist.
-  - `spec-auditor` checks specs against the code.
-
-  Their steps and limits are in [specs/quality-gates.md](../specs/quality-gates.md#claude-in-chrome-verification).
-
-## README
-
-`README.md` is written for a reviewer who has only Node, pnpm and uv. It covers:
-
-1. Prerequisites. Node (version in `.nvmrc`), pnpm via Corepack, and uv, which installs Python itself.
-2. Quick start: `pnpm bootstrap`, then `pnpm dev`, with the app and `/docs` URLs.
-3. Curation modes.
-   - The keyword mock runs when no key is set; show one sample output.
-   - Enabling Claude: set the key in `backend/.env`. A key exported in the shell counts.
-   - Forcing the mock: `CATALOGUE_CURATION_PROVIDER=keyword`.
-   - `pnpm dev:degraded` shows the failure path.
-4. A table mapping every validation-checklist item and AI-curation rubric line to the test, script or module that proves it. It also notes where the API is stricter than the checklist: `owner` is required.
-5. Running the tests, `pnpm verify:api`, and the latest Claude-in-Chrome report (`docs/verification.md`).
-6. Key decisions, linking to this file.
+`specs/` holds one living contract per subsystem, with its lifecycle in [specs/README.md](../specs/README.md). The rules that hold everywhere, the commands and where each fact lives are in [`CLAUDE.md`](../CLAUDE.md), and `backend/CLAUDE.md` and `frontend/CLAUDE.md` load when Claude Code works in those directories. The `verify-api` and `verify-ui` skills and the `spec-auditor` agent, with their limits, are in [specs/quality-gates.md](../specs/quality-gates.md#claude-in-chrome-verification).
 
 ## Decisions
 

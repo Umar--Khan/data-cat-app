@@ -33,6 +33,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           python: 'false'
+      - run: pnpm check:docs
       - run: pnpm --filter frontend exec playwright install --with-deps --only-shell chromium
       - run: pnpm check:web
       - run: pnpm --filter frontend build
