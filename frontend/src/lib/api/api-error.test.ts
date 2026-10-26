@@ -6,7 +6,7 @@ import { apiUrl } from '@/test/msw/handlers'
 import { createInvalid } from '@/test/msw/scenarios'
 import { seedDatasets } from '@/test/msw/store'
 import { worker } from '@/test/msw/worker'
-import { ApiError, networkErrorMessage, unwrap } from './api-error'
+import { ApiError, networkErrorMessage, unreadableResponseMessage, unwrap } from './api-error'
 
 const notFound: ProblemDetails = {
   type: '/problems/dataset-not-found',
@@ -30,14 +30,13 @@ function listWith(response: () => Response) {
 }
 
 describe('ApiError', () => {
-  it('is an Error with its kind, status, message, field errors and cause', () => {
+  it('is an Error with its status, message, field errors and cause', () => {
     const cause = new TypeError('Failed to fetch')
-    const error = new ApiError({ kind: 'network', status: null, message: 'Offline', cause })
+    const error = new ApiError({ status: null, message: 'Offline', cause })
 
     expect(error).toBeInstanceOf(Error)
     expect(error).toMatchObject({
       name: 'ApiError',
-      kind: 'network',
       status: null,
       message: 'Offline',
       fieldErrors: [],
@@ -51,7 +50,6 @@ describe('ApiError', () => {
       const error = ApiError.fromResponse(problemResponse({}), { ...notFound, errors })
 
       expect(error).toMatchObject({
-        kind: 'http',
         status: 404,
         message: 'No dataset has id "9". It may have been deleted already.',
         fieldErrors: errors,
@@ -84,7 +82,6 @@ describe('ApiError', () => {
       const error = ApiError.fromResponse(problemResponse(body, contentType), body)
 
       expect(error).toMatchObject({
-        kind: 'http',
         status: 404,
         message: 'The server returned an unexpected error (HTTP 404).',
         fieldErrors: [],
@@ -108,7 +105,6 @@ describe('unwrap', () => {
 
     await expect(request).rejects.toThrow(ApiError)
     await expect(request).rejects.toMatchObject({
-      kind: 'http',
       status: 400,
       message: 'The request body has an invalid field: owner.',
       fieldErrors,
@@ -125,7 +121,6 @@ describe('unwrap', () => {
     )
 
     await expect(request).rejects.toMatchObject({
-      kind: 'http',
       status: 502,
       message: 'The server returned an unexpected error (HTTP 502).',
     })
@@ -134,7 +129,7 @@ describe('unwrap', () => {
   it('throws an HTTP error for an empty error response', async () => {
     const request = listWith(() => new HttpResponse(null, { status: 503 }))
 
-    await expect(request).rejects.toMatchObject({ kind: 'http', status: 503 })
+    await expect(request).rejects.toMatchObject({ status: 503 })
   })
 
   it('throws a network error with the user-facing message when no response arrives', async () => {
@@ -144,7 +139,6 @@ describe('unwrap', () => {
 
     expect(error).toBeInstanceOf(ApiError)
     expect(error).toMatchObject({
-      kind: 'network',
       status: null,
       message: networkErrorMessage,
       fieldErrors: [],
@@ -164,11 +158,31 @@ describe('unwrap', () => {
     )
   })
 
-  it('passes any other failure through untouched', async () => {
-    const request = listWith(() =>
-      HttpResponse.text('not json', { headers: { 'Content-Type': 'application/json' } }),
-    )
+  it.each([
+    [
+      "a proxy's sign-in page",
+      () => HttpResponse.html('<!doctype html><title>Sign in</title><h1>Sign in to continue</h1>'),
+    ],
+    [
+      'a JSON body cut short',
+      () => HttpResponse.text('[{"id": "1"', { headers: { 'Content-Type': 'application/json' } }),
+    ],
+  ])('throws an unreadable-response error for a success body that is %s', async (_, response) => {
+    const error: unknown = await listWith(response).catch((reason: unknown) => reason)
 
-    await expect(request).rejects.toThrow(SyntaxError)
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error).toMatchObject({
+      status: null,
+      message: unreadableResponseMessage,
+      fieldErrors: [],
+    })
+    expect((error as ApiError).cause).toBeInstanceOf(SyntaxError)
+    expect(unreadableResponseMessage).toBe('The server sent a response this app could not read.')
+  })
+
+  it('passes any other failure through untouched', async () => {
+    const failure = new RangeError('Unexpected')
+
+    await expect(unwrap(Promise.reject(failure))).rejects.toBe(failure)
   })
 })

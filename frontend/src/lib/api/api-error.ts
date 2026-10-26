@@ -4,10 +4,11 @@ import type { FieldError, ProblemDetails } from '@/lib/api/schema.gen'
 export const networkErrorMessage =
   'Could not reach the server. Check your connection and try again.'
 
+export const unreadableResponseMessage = 'The server sent a response this app could not read.'
+
 const problemMediaType = 'application/problem+json'
 
 interface ApiErrorInit {
-  kind: 'http' | 'network'
   status: number | null
   message: string
   fieldErrors?: readonly FieldError[]
@@ -16,14 +17,12 @@ interface ApiErrorInit {
 
 export class ApiError extends Error {
   override readonly name = 'ApiError'
-  readonly kind: 'http' | 'network'
-  /** The HTTP status, or null when no response arrived. */
+  /** The HTTP status, or null when no response arrived or its body could not be read. */
   readonly status: number | null
   readonly fieldErrors: readonly FieldError[]
 
-  constructor({ kind, status, message, fieldErrors = [], cause }: ApiErrorInit) {
+  constructor({ status, message, fieldErrors = [], cause }: ApiErrorInit) {
     super(message, { cause })
-    this.kind = kind
     this.status = status
     this.fieldErrors = fieldErrors
   }
@@ -31,7 +30,6 @@ export class ApiError extends Error {
   static fromResponse(response: Response, body: unknown): ApiError {
     const problem = readProblem(response, body)
     return new ApiError({
-      kind: 'http',
       status: response.status,
       message: problem
         ? problem.detail || problem.title
@@ -66,11 +64,14 @@ interface FetchResult<TData> {
 }
 
 /**
- * Resolves an openapi-fetch call to its data, or throws an ApiError for an error response or a
- * network failure.
+ * Resolves an openapi-fetch call to its data, or throws an ApiError for an error response, a
+ * network failure or a success response whose body is not JSON.
  *
- * fetch rejects with a TypeError when no response arrives. Anything else is rethrown untouched,
- * an AbortError above all: a request cancelled on purpose is not a failure to report.
+ * fetch rejects with a TypeError when no response arrives. openapi-fetch parses error bodies
+ * leniently but a 2xx body strictly, so a proxy's sign-in page or a static host's index.html
+ * served with a 200 surfaces as a SyntaxError whose text means nothing to a user. Anything else is
+ * rethrown untouched, an AbortError above all: a request cancelled on purpose is not a failure to
+ * report.
  */
 export async function unwrap<TData>(request: Promise<FetchResult<TData>>): Promise<TData> {
   let result: FetchResult<TData>
@@ -78,12 +79,10 @@ export async function unwrap<TData>(request: Promise<FetchResult<TData>>): Promi
     result = await request
   } catch (error) {
     if (error instanceof TypeError) {
-      throw new ApiError({
-        kind: 'network',
-        status: null,
-        message: networkErrorMessage,
-        cause: error,
-      })
+      throw new ApiError({ status: null, message: networkErrorMessage, cause: error })
+    }
+    if (error instanceof SyntaxError) {
+      throw new ApiError({ status: null, message: unreadableResponseMessage, cause: error })
     }
     throw error
   }

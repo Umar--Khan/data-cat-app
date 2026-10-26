@@ -1,7 +1,12 @@
 import { MutationObserver, QueryObserver, type QueryObserverResult } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
-import { ApiError, unwrap } from '@/lib/api/api-error'
+import {
+  ApiError,
+  networkErrorMessage,
+  unreadableResponseMessage,
+  unwrap,
+} from '@/lib/api/api-error'
 import { apiClient } from '@/lib/api/client'
 import { apiUrl } from '@/test/msw/handlers'
 import { deleteFails, listFails } from '@/test/msw/scenarios'
@@ -9,10 +14,11 @@ import { apiRequests, worker } from '@/test/msw/worker'
 import { createTestQueryClient } from '@/test/render'
 import { createQueryClient } from './query-client'
 
-const network = new ApiError({ kind: 'network', status: null, message: 'Offline' })
+const network = new ApiError({ status: null, message: networkErrorMessage })
+const unreadable = new ApiError({ status: null, message: unreadableResponseMessage })
 
 function httpError(status: number) {
-  return new ApiError({ kind: 'http', status, message: 'Failed' })
+  return new ApiError({ status, message: 'Failed' })
 }
 
 describe('createQueryClient', () => {
@@ -39,6 +45,7 @@ describe('createQueryClient', () => {
 
     it.each([
       ['a network failure', network],
+      ['a response this app could not read', unreadable],
       ['a 500', httpError(500)],
       ['a 503', httpError(503)],
     ])('retries %s at most twice', (_, error) => {

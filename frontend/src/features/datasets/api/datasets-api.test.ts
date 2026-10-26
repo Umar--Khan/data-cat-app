@@ -53,6 +53,6 @@ describe('datasetsApi', () => {
     const request = datasetsApi.delete('9')
 
     await expect(request).rejects.toThrow(ApiError)
-    await expect(request).rejects.toMatchObject({ kind: 'http', status: 404 })
+    await expect(request).rejects.toMatchObject({ status: 404 })
   })
 })

@@ -12,7 +12,7 @@ const fields = ['name', 'owner', 'description'] as const
 const labels = { name: 'Name', owner: 'Owner', description: 'Description' }
 
 function invalid(fieldErrors: FieldError[]) {
-  return new ApiError({ kind: 'http', status: 400, message: 'Invalid request body', fieldErrors })
+  return new ApiError({ status: 400, message: 'Invalid request body', fieldErrors })
 }
 
 function ServerErrorsForm({

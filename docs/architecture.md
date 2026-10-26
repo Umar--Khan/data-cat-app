@@ -133,7 +133,7 @@ Dependencies point one way: features may use `components/ui` and `lib`, and neit
 
 ### Data flow
 
-- **API layer.** openapi-typescript generates types from the backend's OpenAPI document, and calls go through openapi-fetch. `datasetsApi` is the only module that calls the client. `unwrap()` turns problem+json responses and network failures into one `ApiError`.
+- **API layer.** openapi-typescript generates types from the backend's OpenAPI document, and calls go through openapi-fetch. `datasetsApi` is the only module that calls the client. `unwrap()` turns error responses, network failures and success bodies that are not JSON into one `ApiError`.
 - **Server state.** TanStack Query owns everything fetched, and nothing else holds server data.
 - **Forms.** react-hook-form with a zod schema that mirrors the API's field limits.
 

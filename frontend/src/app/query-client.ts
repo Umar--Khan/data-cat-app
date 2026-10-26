@@ -3,7 +3,8 @@ import { ApiError } from '@/lib/api/api-error'
 
 const maxRetries = 2
 
-// A network failure (no status) or a 5xx can pass; any other error would fail the same way again.
+// A failure with no status to judge by (no response, or an unreadable one) or a 5xx can pass; any
+// other error would fail the same way again.
 function isTransient(error: Error): boolean {
   return error instanceof ApiError && (error.status === null || error.status >= 500)
 }

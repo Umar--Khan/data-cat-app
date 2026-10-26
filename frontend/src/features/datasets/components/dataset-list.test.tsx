@@ -1,14 +1,17 @@
+import { http, HttpResponse } from 'msw'
 import { useId, useRef } from 'react'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { datasetKeys } from '@/features/datasets/api/query-keys'
+import { unreadableResponseMessage } from '@/lib/api/api-error'
 import type { Dataset } from '@/lib/api/schema.gen'
 import { expectNoA11yViolations } from '@/test/a11y'
 import { emulateMedia } from '@/test/emulate-media'
+import { apiUrl } from '@/test/msw/handlers'
 import { deleteFails, deleteNotFound, hold, listFails } from '@/test/msw/scenarios'
 import { seedDatasets, store } from '@/test/msw/store'
-import { apiRequests } from '@/test/msw/worker'
+import { apiRequests, worker } from '@/test/msw/worker'
 import { renderWithProviders } from '@/test/render'
 import { DatasetList } from './dataset-list'
 
@@ -172,6 +175,22 @@ describe('DatasetList', () => {
     await expect.element(screen.status).toBeEmptyDOMElement()
     await expect.element(screen.section.getByText("Couldn't load datasets")).not.toBeInTheDocument()
     await expect.element(screen.datasetsHeading).toHaveFocus()
+    await expectNoA11yViolations()
+  })
+
+  it("explains a list it could not read in words, not the parser's", async () => {
+    // What a static host answers when the API base URL points at it instead.
+    worker.use(
+      http.get(apiUrl('/datasets'), () =>
+        HttpResponse.html('<!doctype html><title>Data Catalogue</title><div id="root"></div>'),
+      ),
+    )
+    const screen = await renderList()
+
+    await expect.element(screen.status).toHaveTextContent("Couldn't load datasets")
+    await expect.element(screen.section.getByText(unreadableResponseMessage)).toBeVisible()
+    expect(screen.section.element().textContent).not.toContain('Unexpected token')
+    await expect.element(screen.tryAgain).toBeVisible()
     await expectNoA11yViolations()
   })
 

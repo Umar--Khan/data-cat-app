@@ -54,7 +54,7 @@ The single page of the app: a form to register a dataset and, below it, the cata
   - The new row appears at the end of the list.
 - **Server rejection.**
   - Field errors in a 400 response that match a form field are shown inline on those fields, and focus moves to the first of them in form order (Name, Owner, Description), whatever order the server lists them in.
-  - Anything else shows an inline danger alert above the submit button (`role="alert"`), titled "Couldn't add the dataset", with the `ApiError` message as its body. That covers a 400 with no field error matching a form field, any other 4xx or 5xx, and network failures. The alert is cleared at the start of every submit, so a repeated failure is mounted, and announced, again.
+  - Anything else shows an inline danger alert above the submit button (`role="alert"`), titled "Couldn't add the dataset", with the `ApiError` message as its body. That covers a 400 with no field error matching a form field, any other 4xx or 5xx, network failures, and a success response that cannot be read. The alert is cleared at the start of every submit, so a repeated failure is mounted, and announced, again.
   - Typed values are kept. When the rejection is shown as the alert, focus stays on the submit button.
 
 ### List
@@ -121,13 +121,14 @@ An error boundary at the root, outside the providers, replaces the page with a `
 ## Data contract
 
 - **Types** come from `schema.gen.ts`: `Dataset`, `Curation`, `DatasetCreate`, `ProblemDetails`, `FieldError`.
-- **`ApiError`** has `kind: 'http' | 'network'`, `status` (`null` when no response arrived), `message` and `fieldErrors`.
+- **`ApiError`** has `status` (`null` when no response arrived or its body could not be read), `message` and `fieldErrors`.
   - For problem responses (`application/problem+json` with a problem body), `message` is the problem's `detail`, falling back to its `title`. A body that does not match `ProblemDetails` (string `title` and `detail`, and `errors` whose entries each have a string `field` and `message`) is treated as a plain HTTP error.
   - Any other error response gets "The server returned an unexpected error (HTTP {status})."
   - A network failure (fetch's `TypeError`) gets "Could not reach the server. Check your connection and try again."
+  - A success response whose body is not JSON (openapi-fetch's `SyntaxError`), such as a proxy's sign-in page or a static host's `index.html` when `VITE_API_BASE_URL` points at one, gets "The server sent a response this app could not read." The parser's own text never reaches the user. Error responses never land here, because openapi-fetch reads their bodies leniently.
   - Abort errors, and any other thrown error, are passed through untouched.
 - **Keys.** Query key `['datasets', 'list']`, holding `Dataset[]`. Mutation keys `['datasets', 'create']` and `['datasets', 'delete']`.
-- **Query defaults:** `staleTime` 30 s; retry only network errors and 5xx, at most twice; `networkMode: 'always'`. The browser's online flag says nothing about a localhost API.
+- **Query defaults:** `staleTime` 30 s; retry only errors with no status (a network failure or an unreadable response) and 5xx, at most twice; `networkMode: 'always'`. The browser's online flag says nothing about a localhost API.
 - **Mutation defaults:** `retry: false` (POST is not idempotent), `networkMode: 'always'`.
 
 ## Invariants & decided points
@@ -138,6 +139,7 @@ An error boundary at the root, outside the providers, replaces the page with a `
 - **Optimistic delete filters pending delete mutations out of the list in `select`.** Concurrent deletes cannot bring each other's rows back, and a failure restores its row without manual work. Rejected: snapshot and rollback in `onMutate`/`onError`, where one delete's rollback can restore another's row.
 - **Delete is confirmed** (WCAG 2.2 SC 3.3.4, AA, requires deleting stored data to be confirmed, checked or reversible). Rejected: one-click delete, which fails AA; undo, which would need a restore endpoint or a delayed DELETE that is lost if the tab closes.
 - **Native `<dialog>` with `showModal()`; no component library.** The dialog is the only non-trivial widget besides toasts. `showModal()` provides the top layer, an inert background, Esc and focus return. The dialog reports the closes it makes (Esc, Cancel, confirm) at once rather than through the `close` event, which arrives a task later and would leave a Delete pressed in between with nothing to reopen. A close it did not make, such as the browser handling Esc without a `cancel` event, is still reported through the `close` event, but only while `open` is true; closing it by setting `open` to false reports nothing. Rejected: Radix or shadcn, which would re-implement those behaviours in JavaScript.
+- **`ApiError` carries `status`, not a kind.** Every consumer branches on `status` alone: `null` or 5xx for a retry, 404 for a row already deleted. An unreadable success response shares `null` with a network failure, so a list load retries it too; it seldom passes on a retry, but the two extra GETs cost a few seconds. Rejected: a `kind` field beside `status`, which no production code read.
 - **react-hook-form with zod.** React 19 form actions and `useOptimistic` are not used. TanStack Query already owns pending and error state, and a second mechanism would be a second source of truth.
 - **`role="alert"` only for errors that follow a user action.** Status regions are mounted before their text changes, because a live region inserted along with its content is not reliably announced.
 
