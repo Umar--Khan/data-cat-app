@@ -64,7 +64,7 @@ Three jobs run in parallel on pushes to `main` and on pull requests, each with a
 
 | Layer        | Runs in                                                                                              | Covers                                                                                                                                                                                                                     |
 | ------------ | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Backend unit | pytest (anyio plugin for async)                                                                      | `DatasetService`, the repository, both providers, the normaliser, the prompt, provider selection                                                                                                                           |
+| Backend unit | pytest (anyio plugin for async)                                                                      | `DatasetService`, the repository, both providers, the normaliser, the prompt, provider selection, and `verify_api.py`'s exit code against the app in process                                                               |
 | Backend API  | pytest + `TestClient` (httpx2), using `create_app(..., curation_provider=FakeCurationProvider())`    | Every item on the brief's API checklist by name, every problem row, `Location`, camelCase, CORS on a 500                                                                                                                   |
 | Contract     | schemathesis, loaded through a pytest fixture so it builds the app after the environment is isolated | For every documented operation: no 5xx, responses match the schema, every status returned is documented                                                                                                                    |
 | Frontend     | One Vitest Browser Mode project (Chromium), MSW 3 service worker, axe-core                           | Pure modules (`ApiError`, query keys, the zod schema against `openapi.json`, server-error mapping), and every component and hook in every state in [datasets-ui.md](./datasets-ui.md), with no axe violations in any state |
@@ -108,7 +108,7 @@ Three jobs run in parallel on pushes to `main` and on pull requests, each with a
 
 ### Live API verification
 
-`backend/scripts/verify_api.py` starts uvicorn on a free port (keyword provider unless told otherwise), waits for `/health`, runs the brief's API checklist, prints one PASS/FAIL line per check, cleans up, and exits non-zero on any failure. The checks:
+`backend/scripts/verify_api.py` starts uvicorn on a free port (keyword provider with no delay unless told otherwise), waits for `/health` and confirms it reports the requested provider, runs the brief's API checklist, prints one PASS/FAIL line per check, always stops the server (Ctrl-C and SIGTERM included), and exits non-zero on any failure. The checks:
 
 1. The three seeds are listed.
 2. The test payload returns 201 with `Location`, tags and summary. With `--degraded`: `tags: []`, `summary: null`, `status: "failed"` and a detail.
@@ -117,7 +117,7 @@ Three jobs run in parallel on pushes to `main` and on pull requests, each with a
 5. A missing name returns a 400 problem with a `name` field error.
 6. A missing description returns the same, for `description`.
 
-With `--provider anthropic` (a key is required), it also prints the curated tags and summary and the client-side latency. Token usage and the serving model appear in the server's INFO log.
+With `--provider anthropic` (a key is required; without one it stops before starting a server), it also prints the curated tags and summary and the client-side latency. Token usage and the serving model appear in the server's INFO log.
 
 ### Claude in Chrome verification
 
@@ -140,7 +140,7 @@ With `--provider anthropic` (a key is required), it also prints the curated tags
 
 **Other tooling:**
 
-- **`/verify-api`** (skill) runs `pnpm verify:api` and `pnpm verify:api --degraded`. With a key present it also runs `--provider anthropic`. When a check fails, it fixes the code, never the script's expectations.
+- **`/verify-api`** (skill) runs `pnpm verify:api` and `pnpm verify:api --degraded`. With a key present it also runs `--provider anthropic`, once. It sets `disable-model-invocation`, so that billed call happens only when someone invokes the skill. When a check fails, it fixes the code, never the script's expectations.
 - **`ui-tester`** (agent) uses `disallowedTools: Edit, Write, NotebookEdit` rather than a `tools` allowlist, so it keeps ToolSearch, which the deferred Chrome tools need. Bash stays available for starting servers, so not editing files is a rule in its prompt, not a hard guarantee.
 - **`spec-auditor`** (agent) is read-only.
   - It compares `specs/`, `docs/architecture.md` and the CLAUDE.md files with the code.
