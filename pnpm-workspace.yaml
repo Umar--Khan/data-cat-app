@@ -6,3 +6,8 @@ peerDependencyRules:
     # Both run correctly on these majors; their declared peer ranges have not caught up yet.
     eslint-plugin-jsx-a11y>eslint: '10'
     openapi-typescript>typescript: '6'
+
+overrides:
+  # Its declared ESLint 9 would install a second ESLint beside the pinned one, for types alone.
+  # Keep it equal to the eslint version in frontend/package.json.
+  '@types/eslint-plugin-jsx-a11y>eslint': '10.13.0'

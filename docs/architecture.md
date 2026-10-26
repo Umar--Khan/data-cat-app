@@ -183,4 +183,4 @@ Subsystem decisions live in each spec's _Invariants & decided points_.
 ## Risks
 
 - **`anthropic` 2.x was first released on 2026-10-21.** The lockfile pins it, and 1.17 has the same call shape if a regression appears.
-- **Tooling ahead of its peers.** `eslint-plugin-jsx-a11y` declares ESLint ≤ 9 and `openapi-typescript` declares TypeScript 5; both run correctly on ESLint 10 and TypeScript 6, with the peer overrides recorded in `pnpm-workspace.yaml`. React Compiler 1.0 runs on Babel 7, as its own dependency requires.
+- **Tooling ahead of its peers.** `eslint-plugin-jsx-a11y` declares ESLint ≤ 9 and `openapi-typescript` declares TypeScript 5; both run correctly on ESLint 10 and TypeScript 6, with the peer overrides recorded in `pnpm-workspace.yaml`. `@types/eslint-plugin-jsx-a11y` depends on ESLint 9 outright, so an override there pins it to the ESLint in use, and an ESLint upgrade changes both. React Compiler 1.0 runs on Babel 7, as its own dependency requires.

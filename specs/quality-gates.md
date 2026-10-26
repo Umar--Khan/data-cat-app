@@ -8,7 +8,7 @@ What each test layer proves, the thresholds that fail a change, what the git hoo
 
 ## Key files
 
-- `package.json` (root scripts), `scripts/dev.mjs`, `scripts/gen-api.mjs` (codegen and the drift check), `scripts/ensure-env.mjs`, `pnpm-workspace.yaml` (peer overrides), `.husky/`, `lint-staged.config.js`, `commitlint.config.js`, `prettier.config.js`, `.prettierignore`, `.nvmrc`.
+- `package.json` (root scripts), `scripts/dev.mjs`, `scripts/gen-api.mjs` (codegen and the drift check), `scripts/ensure-env.mjs`, `pnpm-workspace.yaml` (peer rules and overrides), `.husky/`, `lint-staged.config.js`, `commitlint.config.js`, `prettier.config.js`, `.prettierignore`, `.nvmrc`.
 - `.github/workflows/ci.yml`, `.github/actions/setup/action.yml`.
 - `frontend/vite.config.ts` (Vitest and coverage), `frontend/eslint.config.js`, `frontend/playwright.config.ts`, `frontend/e2e/`, `frontend/src/test/`.
 - `backend/pyproject.toml` (pytest, coverage, ruff, mypy, import-linter), `backend/tests/`, `backend/scripts/verify_api.py`.
