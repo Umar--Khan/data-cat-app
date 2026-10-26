@@ -13,4 +13,13 @@ describe('env', () => {
   it.each([undefined, '', 'localhost:8000', 'ftp://example.com'])('rejects %j', (url) => {
     expect(() => parseEnv({ VITE_API_BASE_URL: url })).toThrow(/VITE_API_BASE_URL/)
   })
+
+  it('says in English what is wrong with the variable', () => {
+    expect(() => parseEnv({})).toThrow(
+      'Invalid frontend environment.\n✖ Invalid input: expected string, received undefined\n  → at VITE_API_BASE_URL',
+    )
+    expect(() => parseEnv({ VITE_API_BASE_URL: 'localhost:8000' })).toThrow(
+      'Invalid frontend environment.\n✖ Invalid URL\n  → at VITE_API_BASE_URL',
+    )
+  })
 })

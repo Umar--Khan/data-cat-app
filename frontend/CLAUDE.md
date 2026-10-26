@@ -32,6 +32,7 @@ e2e/                     Playwright specs; fixtures.ts holds the cleanup fixture
 - Components get server data only through the feature hooks: `useDatasets`, `useCreateDataset`, `useDeleteDataset`. They never call the API client or `fetch`.
 - `datasetsApi` is the only module that calls the client. Query and mutation keys come from the key factory. TanStack Query owns all server state.
 - `src/lib/env.ts` is the only reader of `VITE_*` variables. A new one needs a declaration in `vite-env.d.ts` and a field in the env schema.
+- Schemas use `import * as z from 'zod/mini'`, with checks passed to `.check()`. ESLint refuses `zod` itself, whose classic API adds about 60 kB to the bundle. `env.ts` loads zod's English locale, which then applies to every schema.
 - Never edit `src/lib/api/schema.gen.ts` or `openapi.json`. After a backend contract change, run `pnpm gen:api` from the repository root and commit both files.
 
 ## Styling

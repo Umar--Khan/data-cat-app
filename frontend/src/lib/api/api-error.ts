@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod/mini'
 import type { FieldError, ProblemDetails } from '@/lib/api/schema.gen'
 
 export const networkErrorMessage =
@@ -43,7 +43,7 @@ const problemFields = z.object({
   title: z.string(),
   detail: z.string(),
   errors: z.array(z.object({ field: z.string(), message: z.string() })),
-}) satisfies z.ZodType<Pick<ProblemDetails, 'title' | 'detail' | 'errors'>>
+}) satisfies z.ZodMiniType<Pick<ProblemDetails, 'title' | 'detail' | 'errors'>>
 
 type ProblemFields = z.infer<typeof problemFields>
 

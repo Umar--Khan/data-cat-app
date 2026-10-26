@@ -37,6 +37,11 @@ export default defineConfig(
     ],
     languageOptions: { globals: globals.browser },
     rules: {
+      // One import of classic zod would bring its JSON-schema and locale code back into the bundle.
+      'no-restricted-imports': [
+        'error',
+        { paths: [{ name: 'zod', message: "Use import * as z from 'zod/mini'." }] },
+      ],
       // react-hooks owns the hooks and compiler rules; these copies would report each problem twice.
       '@eslint-react/error-boundaries': 'off',
       '@eslint-react/exhaustive-deps': 'off',

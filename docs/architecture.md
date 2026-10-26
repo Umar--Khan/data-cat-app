@@ -141,7 +141,7 @@ Cache writes, optimistic delete, retries, copy, focus rules and the accessibilit
 
 ### Toolchain
 
-React 19 · Vite 8 (Rolldown) · TypeScript 6 · Tailwind CSS 4 · TanStack Query · react-hook-form with zod · tailwind-variants · sonner · lucide-react. Exact versions are in `frontend/package.json`. React Compiler runs in dev and production builds through `@rolldown/plugin-babel`. It is off under test ([why](../specs/quality-gates.md#invariants--decided-points)).
+React 19 · Vite 8 (Rolldown) · TypeScript 6 · Tailwind CSS 4 · TanStack Query · react-hook-form with zod · tailwind-variants · sonner · lucide-react. Exact versions are in `frontend/package.json`. Schemas use `zod/mini`: classic zod's methods bring along JSON-schema and locale code the app never calls, about 60 kB of the bundle, and ESLint refuses an import of `zod` itself. React Compiler runs in dev and production builds through `@rolldown/plugin-babel`. It is off under test ([why](../specs/quality-gates.md#invariants--decided-points)).
 
 ## Quality
 
