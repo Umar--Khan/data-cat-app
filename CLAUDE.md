@@ -13,7 +13,7 @@ specs/       one behaviour contract per subsystem
 docs/        architecture and the latest browser-verification report
 scripts/     Node scripts behind the root commands: dev servers, OpenAPI codegen, env bootstrap
 .github/     CI workflow and its shared setup action
-.claude/     project settings and skills for Claude Code
+.claude/     project settings, skills and agents for Claude Code
 ```
 
 ## Commands

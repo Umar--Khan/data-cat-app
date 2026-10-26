@@ -122,22 +122,22 @@ With `--provider anthropic` (a key is required; without one it stops before star
 
 ### Claude in Chrome verification
 
-**`/verify-ui`** is a skill, run in the `ui-tester` agent. It drives the running app in the user's Chrome:
+**`/verify-ui`** is a skill, run in the `ui-tester` agent (`context: fork`). It drives the running app in the user's Chrome. With the argument `keyword`, servers it starts use the keyword curator; otherwise `backend/.env` decides, and with a Claude key each of the two datasets it creates is one billed call.
 
-1. **Preflight.** If nothing is listening on :8000 and :5173, it starts `pnpm dev` itself. If the servers are already running, it checks that `GET /datasets` returns exactly the three seeds, and asks for a restart if not. The provider from `/health` goes in the report header.
+1. **Preflight.** If nothing is listening on :8000 and :5173, it starts the API and Vite itself, as two processes with the commands `scripts/dev.mjs` uses, so step 5 can stop and restart the API alone (`pnpm dev` stops both when either exits). If the servers are already running, it checks that `GET /datasets` returns exactly the three seeds, and asks for a restart if not. The provider from `/health` goes in the report header.
 2. **The brief's frontend checklist.** The delete step removes only the record the run created.
 3. **Keyboard-only pass,** with a screenshot at each focus stop.
-4. **Accessibility spot checks:** landmarks, names, the live region, and reflow at 320 px. It reads back `innerWidth`, and falls back to 400 % zoom if the window cannot get that narrow.
+4. **Accessibility spot checks:** landmarks, names, the live region, and reflow at 320 px. It reads back `innerWidth`; a window that cannot get that narrow is tested at the narrowest width it reaches, which the report records, and the Playwright a11y spec covers 320 × 720 exactly.
 5. **Real failure states,** with no interception:
    - stop the API it started, load the page, restart the API, then "Try again";
-   - delete a shown row with `curl`, then delete it in the UI (info toast).
+   - delete a row it created with `curl`, then delete it in the UI (info toast).
 
    When the servers belong to the user, the stop-and-restart check is reported as SKIPPED.
 
 6. **Console errors.**
 7. **The degraded path,** against `pnpm dev:degraded`.
 
-`ui-tester` returns its report as its final message: the date, the commit, a PASS/FAIL table, accessibility findings, and the path of any exported GIF. The invoking session writes it to `docs/verification.md`, with the GIF under `docs/verification/`. The committed report must be all PASS for the commit it names.
+`ui-tester` returns its report as its final message: the date, the commit, the provider, a PASS/FAIL table, accessibility findings, console errors, and the paths of the screenshots it saved. The invoking session writes it to `docs/verification.md`, with the screenshots it keeps under `docs/verification/`. No GIF is exported, because that is a browser download. The committed report must be all PASS for the commit it names.
 
 **Other tooling:**
 
