@@ -2,13 +2,13 @@ import time
 from typing import Literal
 
 import pytest
-from anthropic import AsyncAnthropic
+from anthropic import AsyncAnthropic, Timeout
 from pydantic import SecretStr
 
 from catalogue.core.config import Settings
 from catalogue.curation import factory
-from catalogue.curation.anthropic_provider import AnthropicCurationProvider, build_client
-from catalogue.curation.factory import select_provider_name
+from catalogue.curation.anthropic_provider import AnthropicCurationProvider
+from catalogue.curation.factory import build_client, select_provider_name
 from catalogue.curation.keyword_provider import KeywordCurationProvider
 from catalogue.domain.models import CurationProviderName, NewDataset
 
@@ -50,6 +50,27 @@ async def test_open_curation_provider_builds_the_keyword_provider_with_its_delay
 
     assert isinstance(provider, KeywordCurationProvider)
     assert elapsed >= 0.09
+
+
+@pytest.mark.anyio
+async def test_client_takes_its_key_host_deadline_and_one_retry_from_settings() -> None:
+    settings = Settings(
+        _env_file=None,
+        ANTHROPIC_API_KEY=SecretStr("sk-ant-test"),
+        ANTHROPIC_BASE_URL="https://claude.test",
+        anthropic_timeout_seconds=12.5,
+    )
+
+    async with build_client(settings) as client:
+        assert client.api_key == "sk-ant-test"
+        assert str(client.base_url) == "https://claude.test"
+        assert client.timeout == Timeout(12.5, connect=5)
+        assert client.max_retries == 1
+
+
+def test_client_refuses_to_start_without_a_key() -> None:
+    with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
+        build_client(Settings(_env_file=None, curation_provider="keyword"))
 
 
 @pytest.fixture

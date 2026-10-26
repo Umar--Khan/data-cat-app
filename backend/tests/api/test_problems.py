@@ -30,7 +30,7 @@ MALFORMED = {
 class BrokenRepository(InMemoryDatasetRepository):
     """Stands in for a bug below the API that no handler foresees."""
 
-    def list(self) -> Sequence[Dataset]:
+    async def list(self) -> Sequence[Dataset]:
         raise RuntimeError("the store's secret internals")
 
 

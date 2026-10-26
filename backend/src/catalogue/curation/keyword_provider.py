@@ -431,7 +431,7 @@ class KeywordCurationProvider:
         selected = _select(name, owner, description)
         cadence = next((rule for rule in selected if rule.facet == "cadence"), None)
         return CurationDraft(
-            tags=list(_tags(selected, name)), summary=_summary(name, description, cadence)
+            tags=_tags(selected, name), summary=_summary(name, description, cadence)
         )
 
 

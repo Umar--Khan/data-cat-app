@@ -2,7 +2,7 @@ from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 
 from catalogue.curation.service import CurationService
-from catalogue.domain.models import Curation, Dataset, NewDataset
+from catalogue.domain.models import CuratedDataset, Dataset, NewDataset
 from catalogue.repositories.base import DatasetRepository
 
 type Clock = Callable[[], datetime]
@@ -24,24 +24,19 @@ class DatasetService:
         self._clock = clock
 
     async def list(self) -> Sequence[Dataset]:
-        return self._repository.list()
+        return await self._repository.list()
 
     async def create(self, new: NewDataset) -> Dataset:
         """Curate a new dataset and store it, whatever the curation outcome.
 
-        The timestamp is read after curation, immediately before `add()`, with no await between
-        them. Two overlapping creates are therefore stored in the order of their timestamps, so
-        list order and `createdAt` always agree.
+        The timestamp is read after curation, as `add()` is called. A store that never awaits
+        inside `add()` stores the record before any other request runs, so two overlapping
+        creates are stored in the order of their timestamps and list order agrees with
+        `createdAt`.
         """
-        result = await self._curation.curate(new)
-        return self._repository.add(
-            new,
-            tags=result.tags,
-            summary=result.summary,
-            curation=Curation(status=result.status, provider=result.provider, detail=result.detail),
-            created_at=self._clock(),
-        )
+        curation = await self._curation.curate(new)
+        return await self._repository.add(CuratedDataset(new, curation, self._clock()))
 
     async def delete(self, dataset_id: str) -> Dataset:
         """Remove a dataset and return it, or raise `DatasetNotFoundError`."""
-        return self._repository.delete(dataset_id)
+        return await self._repository.delete(dataset_id)

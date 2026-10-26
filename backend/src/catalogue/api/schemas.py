@@ -4,7 +4,14 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
-from catalogue.domain.models import CurationProviderName, CurationSource, CurationStatus
+from catalogue.domain.models import (
+    MAX_DESCRIPTION_LENGTH,
+    MAX_NAME_LENGTH,
+    MAX_OWNER_LENGTH,
+    CurationProviderName,
+    CurationSource,
+    CurationStatus,
+)
 
 
 class CamelModel(BaseModel):
@@ -41,9 +48,9 @@ class DatasetCreate(CamelModel):
         },
     )
 
-    name: str = Field(min_length=1, max_length=120)
-    owner: str = Field(min_length=1, max_length=120)
-    description: str = Field(min_length=1, max_length=2000)
+    name: str = Field(min_length=1, max_length=MAX_NAME_LENGTH)
+    owner: str = Field(min_length=1, max_length=MAX_OWNER_LENGTH)
+    description: str = Field(min_length=1, max_length=MAX_DESCRIPTION_LENGTH)
 
 
 class Curation(CamelModel):

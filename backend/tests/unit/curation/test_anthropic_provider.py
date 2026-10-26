@@ -26,13 +26,13 @@ from anthropic import (
     OverloadedError,
     PermissionDeniedError,
     RateLimitError,
-    Timeout,
 )
 from pydantic import SecretStr, ValidationError
 
 from catalogue.core.config import Settings
-from catalogue.curation.anthropic_provider import AnthropicCurationProvider, build_client
+from catalogue.curation.anthropic_provider import AnthropicCurationProvider
 from catalogue.curation.base import CurationDraft, CurationError, CurationFailure
+from catalogue.curation.factory import build_client
 from catalogue.curation.prompt import SYSTEM_PROMPT, render_dataset
 from catalogue.domain.models import NewDataset
 
@@ -46,9 +46,10 @@ TRADE_CONFIRMATIONS = NewDataset(
     ),
 )
 DRAFT = CurationDraft(
-    tags=["trading", "finance", "settlements", "daily"],
+    tags=("trading", "finance", "settlements", "daily"),
     summary="A daily export of confirmed trades covering instrument type and counterparty.",
 )
+DRAFT_JSON = json.dumps({"tags": list(DRAFT.tags), "summary": DRAFT.summary})
 THINKING = {"type": "thinking", "thinking": "", "signature": "sig"}
 RETRY_SOON = {"retry-after-ms": "1"}
 
@@ -116,8 +117,8 @@ def message(
     )
 
 
-def completed(draft: CurationDraft = DRAFT) -> httpx2.Response:
-    return message(THINKING, text(draft.model_dump_json()))
+def completed() -> httpx2.Response:
+    return message(THINKING, text(DRAFT_JSON))
 
 
 def api_error(
@@ -140,7 +141,11 @@ async def open_provider(
 ) -> AsyncIterator[AnthropicCurationProvider]:
     http_client = DefaultAsyncHttpxClient(transport=httpx2.MockTransport(api))
     async with build_client(settings, http_client=http_client) as client:
-        yield AnthropicCurationProvider(client, settings)
+        yield AnthropicCurationProvider(
+            client,
+            model=settings.anthropic_model,
+            timeout_seconds=settings.anthropic_timeout_seconds,
+        )
 
 
 async def curate(api: FakeAnthropicApi, settings: Settings | None = None) -> CurationDraft:
@@ -166,20 +171,6 @@ async def test_names_itself_and_the_configured_model() -> None:
 
 
 @pytest.mark.anyio
-async def test_client_takes_its_key_host_deadline_and_one_retry_from_settings() -> None:
-    async with build_client(make_settings(timeout=12.5)) as client:
-        assert client.api_key == "sk-ant-test"
-        assert str(client.base_url) == "https://claude.test"
-        assert client.timeout == Timeout(12.5, connect=5)
-        assert client.max_retries == 1
-
-
-def test_client_refuses_to_start_without_a_key() -> None:
-    with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
-        build_client(Settings(_env_file=None, curation_provider="keyword"))
-
-
-@pytest.mark.anyio
 async def test_returns_the_draft_as_claude_wrote_it() -> None:
     api = FakeAnthropicApi(completed())
 
@@ -188,13 +179,31 @@ async def test_returns_the_draft_as_claude_wrote_it() -> None:
 
 
 @pytest.mark.anyio
+async def test_returns_more_than_was_asked_for_so_the_normaliser_can_trim_it() -> None:
+    tags = [f"tag-{number}" for number in range(9)]
+    summary = "A long one. " * 40
+    api = FakeAnthropicApi(message(text(json.dumps({"tags": tags, "summary": summary}))))
+
+    assert await curate(api) == CurationDraft(tags=tuple(tags), summary=summary)
+
+
+@pytest.mark.anyio
 async def test_sends_the_request_the_spec_describes() -> None:
     api = FakeAnthropicApi(completed())
-    draft_schema = CurationDraft.model_json_schema()
 
     await curate(api)
 
-    assert api.body == {
+    body = api.body
+    assert isinstance(body, dict)
+    # The descriptions are prose written for Claude, so only their presence is checked here.
+    schema = body["output_config"]["format"]["schema"]
+    descriptions = [
+        schema.pop("description"),
+        schema["properties"]["tags"].pop("description"),
+        schema["properties"]["summary"].pop("description"),
+    ]
+    assert all(isinstance(description, str) and description for description in descriptions)
+    assert body == {
         "model": "claude-opus-5-5",
         "max_tokens": 4096,
         "system": [{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
@@ -206,19 +215,13 @@ async def test_sends_the_request_the_spec_describes() -> None:
                 "schema": {
                     "type": "object",
                     "title": "CurationDraft",
-                    "description": draft_schema["description"],
                     "properties": {
                         "tags": {
                             "type": "array",
                             "title": "Tags",
-                            "description": draft_schema["properties"]["tags"]["description"],
                             "items": {"type": "string"},
                         },
-                        "summary": {
-                            "type": "string",
-                            "title": "Summary",
-                            "description": draft_schema["properties"]["summary"]["description"],
-                        },
+                        "summary": {"type": "string", "title": "Summary"},
                     },
                     "required": ["tags", "summary"],
                     "additionalProperties": False,
@@ -301,7 +304,7 @@ async def test_logs_the_serving_model_usage_and_request_id(
         "cache_read_input_tokens": 1200,
         "cache_creation_input_tokens": 0,
     }
-    api = FakeAnthropicApi(message(THINKING, text(DRAFT.model_dump_json()), usage=usage))
+    api = FakeAnthropicApi(message(THINKING, text(DRAFT_JSON), usage=usage))
 
     await curate(api)
 
@@ -338,9 +341,7 @@ async def test_logs_when_a_fallback_model_served(caplog: pytest.LogCaptureFixtur
         "output_tokens": 80,
         "iterations": [declined, served],
     }
-    api = FakeAnthropicApi(
-        message(switch, text(DRAFT.model_dump_json()), model="claude-opus-5", usage=usage)
-    )
+    api = FakeAnthropicApi(message(switch, text(DRAFT_JSON), model="claude-opus-5", usage=usage))
 
     assert await curate(api) == DRAFT
     assert caplog.messages == [
@@ -485,7 +486,7 @@ async def test_a_refusal_is_refused_and_logged_with_its_category(
     ("reply", "cause"),
     [
         pytest.param(
-            message(THINKING, text(DRAFT.model_dump_json()), stop_reason="max_tokens"),
+            message(THINKING, text(DRAFT_JSON), stop_reason="max_tokens"),
             None,
             id="max-tokens",
         ),

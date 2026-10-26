@@ -38,12 +38,10 @@ async def test_create_stores_the_curation_result_under_a_new_id() -> None:
         name=NEW.name,
         owner=NEW.owner,
         description=NEW.description,
-        tags=tuple(DRAFT.tags),
-        summary=DRAFT.summary,
-        curation=Curation(status="completed", provider="keyword", detail=None),
+        curation=Curation.completed("keyword", DRAFT.tags, DRAFT.summary),
         created_at=TickingClock.START,
     )
-    assert repository.list() == (dataset,)
+    assert await repository.list() == (dataset,)
 
 
 @pytest.mark.anyio
@@ -53,10 +51,7 @@ async def test_create_stores_a_failed_curation_with_no_tags_or_summary() -> None
 
     dataset = await service.create(NEW)
 
-    assert (dataset.tags, dataset.summary) == ((), None)
-    assert dataset.curation == Curation(
-        status="failed", provider="keyword", detail="AI curation timed out."
-    )
+    assert dataset.curation == Curation.failed("keyword", "AI curation timed out.")
 
 
 @pytest.mark.anyio
@@ -90,7 +85,7 @@ async def test_overlapping_creates_are_stored_in_the_order_of_their_timestamps()
         await service.create(second)
         gate.open()
 
-    stored = [(dataset.id, dataset.name, dataset.created_at) for dataset in repository.list()]
+    stored = [(dataset.id, dataset.name, dataset.created_at) for dataset in await repository.list()]
     assert stored == [
         ("1", "Second", TickingClock.START),
         ("2", "First", TickingClock.START + timedelta(seconds=1)),
@@ -115,7 +110,7 @@ async def test_delete_removes_the_dataset_and_returns_it() -> None:
     dataset = await service.create(NEW)
 
     assert await service.delete(dataset.id) == dataset
-    assert repository.list() == ()
+    assert await repository.list() == ()
 
 
 @pytest.mark.anyio

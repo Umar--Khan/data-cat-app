@@ -5,9 +5,9 @@ from typing import cast
 
 import pytest
 
-from catalogue.curation.base import CurationDraft, CurationError, CurationFailure, CurationResult
+from catalogue.curation.base import CurationDraft, CurationError, CurationFailure
 from catalogue.curation.service import CurationService
-from catalogue.domain.models import CurationProviderName, NewDataset
+from catalogue.domain.models import Curation, CurationProviderName, NewDataset
 
 NEW = NewDataset(
     name="Trade Confirmations",
@@ -46,7 +46,7 @@ def failing_with(failure: CurationFailure) -> ScriptedProvider:
 @pytest.mark.anyio
 async def test_a_usable_draft_completes_with_normalised_tags_and_summary() -> None:
     draft = CurationDraft(
-        tags=["#Trading", "trading", "Real Time", "data", "pii"],
+        tags=("#Trading", "trading", "Real Time", "data", "pii"),
         summary='  "a daily export of confirmed trades.  Updated nightly."',
     )
     provider = ScriptedProvider(draft)
@@ -54,7 +54,7 @@ async def test_a_usable_draft_completes_with_normalised_tags_and_summary() -> No
     result = await CurationService(provider).curate(NEW)
 
     assert provider.received == [NEW]
-    assert result == CurationResult(
+    assert result == Curation(
         status="completed",
         provider="anthropic",
         tags=("trading", "real-time", "PII"),
@@ -65,7 +65,7 @@ async def test_a_usable_draft_completes_with_normalised_tags_and_summary() -> No
 
 @pytest.mark.anyio
 async def test_the_result_names_the_provider_that_ran() -> None:
-    provider = ScriptedProvider(CurationDraft(tags=["finance"], summary="A feed."), name="keyword")
+    provider = ScriptedProvider(CurationDraft(tags=("finance",), summary="A feed."), name="keyword")
 
     result = await CurationService(provider).curate(NEW)
 
@@ -90,7 +90,7 @@ async def test_each_failure_row_saves_no_curation_and_only_the_user_safe_detail(
 ) -> None:
     result = await CurationService(failing_with(failure)).curate(NEW)
 
-    assert result == CurationResult(
+    assert result == Curation(
         status="failed", provider="anthropic", tags=(), summary=None, detail=detail
     )
 
@@ -129,10 +129,10 @@ async def test_a_typed_failure_without_a_cause_logs_only_the_failure(
 @pytest.mark.parametrize(
     "draft",
     [
-        pytest.param(CurationDraft(tags=["data", "#", "misc"], summary="A feed."), id="no-tag"),
-        pytest.param(CurationDraft(tags=[], summary="A feed."), id="empty-tags"),
-        pytest.param(CurationDraft(tags=["finance"], summary="  "), id="blank-summary"),
-        pytest.param(CurationDraft(tags=["finance"], summary='"..."'), id="punctuation-summary"),
+        pytest.param(CurationDraft(tags=("data", "#", "misc"), summary="A feed."), id="no-tag"),
+        pytest.param(CurationDraft(tags=(), summary="A feed."), id="empty-tags"),
+        pytest.param(CurationDraft(tags=("finance",), summary="  "), id="blank-summary"),
+        pytest.param(CurationDraft(tags=("finance",), summary='"..."'), id="punctuation-summary"),
     ],
 )
 async def test_nothing_usable_after_normalising_is_invalid_output(
@@ -141,7 +141,7 @@ async def test_nothing_usable_after_normalising_is_invalid_output(
     with caplog.at_level(logging.WARNING, logger="catalogue"):
         result = await CurationService(ScriptedProvider(draft)).curate(NEW)
 
-    assert result == CurationResult.failed("anthropic", CurationFailure.INVALID_OUTPUT)
+    assert result == Curation.failed("anthropic", CurationFailure.INVALID_OUTPUT.detail)
     [record] = caplog.records
     assert record.getMessage() == (
         "Curation by anthropic failed as invalid_output: nothing usable left after "
@@ -158,7 +158,7 @@ async def test_an_unexpected_provider_error_fails_safely_and_logs_a_traceback(
     with caplog.at_level(logging.WARNING, logger="catalogue"):
         result = await CurationService(provider).curate(NEW)
 
-    assert result == CurationResult.failed("anthropic", CurationFailure.UNEXPECTED)
+    assert result == Curation.failed("anthropic", CurationFailure.UNEXPECTED.detail)
     [record] = caplog.records
     assert record.levelno == logging.ERROR
     assert record.getMessage() == "Curation by anthropic failed unexpectedly"
@@ -169,13 +169,13 @@ async def test_an_unexpected_provider_error_fails_safely_and_logs_a_traceback(
 
 @pytest.mark.anyio
 async def test_an_error_inside_the_normaliser_is_unexpected() -> None:
-    # Skipping validation, and telling the type checker so, is the only way to hand the
-    # normaliser a value it cannot handle.
-    draft = CurationDraft.model_construct(tags=cast("list[str]", [42]), summary="A feed.")
+    # Telling the type checker otherwise is the only way to hand the normaliser a value it cannot
+    # handle.
+    draft = CurationDraft(tags=cast("tuple[str, ...]", (42,)), summary="A feed.")
 
     result = await CurationService(ScriptedProvider(draft)).curate(NEW)
 
-    assert result == CurationResult.failed("anthropic", CurationFailure.UNEXPECTED)
+    assert result == Curation.failed("anthropic", CurationFailure.UNEXPECTED.detail)
 
 
 @dataclass(frozen=True, slots=True)

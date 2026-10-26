@@ -1,48 +1,38 @@
 import itertools
 from collections.abc import Iterable, Sequence
-from datetime import datetime
 
 from catalogue.domain.errors import DatasetNotFoundError
-from catalogue.domain.models import Curation, Dataset, NewDataset
+from catalogue.domain.models import CuratedDataset, Dataset
 
 
 class InMemoryDatasetRepository:
     """Holds the catalogue in process memory, so a restart brings back only the initial records.
 
     New ids count up from the highest initial id and are never reissued, so a client holding the
-    id of a deleted record can never delete a newer one by mistake.
+    id of a deleted record can never delete a newer one by mistake. No method awaits, which is
+    what makes each one atomic on the event loop without a lock.
     """
 
     def __init__(self, initial: Iterable[Dataset] = ()) -> None:
         self._datasets = {dataset.id: dataset for dataset in initial}
         self._ids = itertools.count(max(map(int, self._datasets), default=0) + 1)
 
-    def list(self) -> Sequence[Dataset]:
+    async def list(self) -> Sequence[Dataset]:
         return tuple(self._datasets.values())
 
-    def add(
-        self,
-        new: NewDataset,
-        *,
-        tags: tuple[str, ...],
-        summary: str | None,
-        curation: Curation,
-        created_at: datetime,
-    ) -> Dataset:
-        dataset = Dataset(
+    async def add(self, dataset: CuratedDataset) -> Dataset:
+        stored = Dataset(
             id=str(next(self._ids)),
-            name=new.name,
-            owner=new.owner,
-            description=new.description,
-            tags=tags,
-            summary=summary,
-            curation=curation,
-            created_at=created_at,
+            name=dataset.new.name,
+            owner=dataset.new.owner,
+            description=dataset.new.description,
+            curation=dataset.curation,
+            created_at=dataset.created_at,
         )
-        self._datasets[dataset.id] = dataset
-        return dataset
+        self._datasets[stored.id] = stored
+        return stored
 
-    def delete(self, dataset_id: str) -> Dataset:
+    async def delete(self, dataset_id: str) -> Dataset:
         dataset = self._datasets.pop(dataset_id, None)
         if dataset is None:
             raise DatasetNotFoundError(dataset_id)

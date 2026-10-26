@@ -71,7 +71,9 @@ async def curate(name: str, owner: str, description: str) -> CurationDraft:
 async def test_golden_cases(
     name: str, owner: str, description: str, tags: list[str], summary: str
 ) -> None:
-    assert await curate(name, owner, description) == CurationDraft(tags=tags, summary=summary)
+    assert await curate(name, owner, description) == CurationDraft(
+        tags=tuple(tags), summary=summary
+    )
 
 
 # Realistic datasets beyond the brief, kept so a taxonomy change shows its effect on each.
@@ -338,7 +340,9 @@ async def test_golden_cases(
 async def test_regression_cases(
     name: str, owner: str, description: str, tags: list[str], summary: str
 ) -> None:
-    assert await curate(name, owner, description) == CurationDraft(tags=tags, summary=summary)
+    assert await curate(name, owner, description) == CurationDraft(
+        tags=tuple(tags), summary=summary
+    )
 
 
 @pytest.mark.anyio
@@ -384,7 +388,7 @@ async def test_regression_cases(
     ],
 )
 async def test_selection(name: str, owner: str, description: str, tags: list[str]) -> None:
-    assert (await curate(name, owner, description)).tags == tags
+    assert (await curate(name, owner, description)).tags == tuple(tags)
 
 
 @pytest.mark.anyio
@@ -478,7 +482,7 @@ async def test_pii_negatives(owner: str, description: str) -> None:
     ],
 )
 async def test_cadence_is_read_from_the_whole_description(description: str, cadence: str) -> None:
-    assert (await curate("Prices", "Team", description)).tags == ["prices", cadence]
+    assert (await curate("Prices", "Team", description)).tags == ("prices", cadence)
 
 
 @pytest.mark.anyio
@@ -597,7 +601,7 @@ async def test_ambiguous_words_count_only_in_a_qualifying_phrase(
 async def test_fallback_takes_name_words_when_no_domain_or_subject_matches(
     name: str, description: str, tags: list[str]
 ) -> None:
-    assert (await curate(name, "Team", description)).tags == tags
+    assert (await curate(name, "Team", description)).tags == tuple(tags)
 
 
 @pytest.mark.anyio
@@ -812,7 +816,7 @@ async def test_awaits_the_configured_delay_through_the_injected_sleep_before_cur
 
     gate.set()
 
-    assert (await task).tags == ["prices", "daily"]
+    assert (await task).tags == ("prices", "daily")
 
 
 # Words the taxonomy, template and fallback react to, so generated text exercises their rules

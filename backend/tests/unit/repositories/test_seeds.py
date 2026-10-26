@@ -1,7 +1,6 @@
 import json
 from datetime import UTC, datetime
 
-from catalogue.domain.models import Curation
 from catalogue.repositories.seeds import seed_datasets
 
 STARTED_AT = datetime(2026, 10, 25, 9, 0, tzinfo=UTC)
@@ -55,5 +54,6 @@ def test_seeds_are_the_brief_sample_data_with_its_own_tag_order() -> None:
 
 def test_seeds_are_credited_to_hand_curation_and_created_at_the_given_time() -> None:
     for seed in seed_datasets(STARTED_AT):
-        assert seed.curation == Curation(status="completed", provider="seed", detail=None)
+        curation = seed.curation
+        assert (curation.status, curation.provider, curation.detail) == ("completed", "seed", None)
         assert seed.created_at == STARTED_AT

@@ -36,8 +36,8 @@ sequenceDiagram
   CS->>P: curate(new), 20 s budget
   P-->>CS: draft or CurationError
   Note over CS: never raises
-  CS-->>DS: CurationResult (completed | failed)
-  DS->>Repo: add(record), id assigned here
+  CS-->>DS: Curation (completed | failed)
+  DS->>Repo: add(CuratedDataset), id assigned here
   Route-->>UI: 201 + Location + Dataset
 ```
 
@@ -64,19 +64,19 @@ package.json          root scripts; husky, lint-staged, commitlint, Prettier
 
 A module imports only from layers below it, and `curation` and `repositories` never import each other. Only `api` and `app` import FastAPI or Starlette, only `curation` imports the Anthropic SDK, `domain` imports no framework at all (not even Pydantic), and only `app.py` and `curation/factory.py` name concrete implementations. import-linter enforces these contracts in `pnpm check`.
 
-| Package         | Owns                                                                                                           |
-| --------------- | -------------------------------------------------------------------------------------------------------------- |
-| `app.py`        | `create_app()`, the composition root: settings, lifespan, middleware, routers. `export_openapi()` for codegen. |
-| `api/`          | Routes, camelCase wire schemas, problem+json handlers, dependency providers, OpenAPI customisation             |
-| `services/`     | `DatasetService`: list; create (curate, then store); delete (missing id raises a domain error)                 |
-| `curation/`     | Provider protocol, Claude and keyword providers, the `CurationService` failure boundary, normalisation, prompt |
-| `repositories/` | `DatasetRepository` protocol, the in-memory implementation, seed records                                       |
-| `domain/`       | Frozen dataclasses (`NewDataset`, `Dataset`, `Curation`), literal types, domain errors. No framework imports.  |
-| `core/`         | Settings (pydantic-settings) and logging                                                                       |
+| Package         | Owns                                                                                                            |
+| --------------- | --------------------------------------------------------------------------------------------------------------- |
+| `app.py`        | `create_app()`, the composition root: settings, lifespan, middleware, routers. `export_openapi()` for codegen.  |
+| `api/`          | Routes, camelCase wire schemas, problem+json handlers, dependency providers, OpenAPI customisation              |
+| `services/`     | `DatasetService`: list; create (curate, then store); delete (missing id raises a domain error)                  |
+| `curation/`     | Provider protocol, Claude and keyword providers, the `CurationService` failure boundary, normalisation, prompt  |
+| `repositories/` | `DatasetRepository` protocol, the in-memory implementation, seed records                                        |
+| `domain/`       | Frozen dataclasses (`NewDataset`, `Curation`, `CuratedDataset`, `Dataset`), field limits, literal types, errors |
+| `core/`         | Settings (pydantic-settings) and logging                                                                        |
 
 ### Models
 
-Domain types are frozen, slotted dataclasses. The in-memory store hands out the objects it holds, so immutability is what stops a caller mutating the catalogue. Wire types are Pydantic models that own every HTTP concern (aliases, constraints, `extra="forbid"`, OpenAPI examples) and map from domain objects through `from_attributes`. Routes build `NewDataset` from the validated body, so services never see a Pydantic model.
+Domain types are frozen, slotted dataclasses. The in-memory store hands out the objects it holds, so immutability is what stops a caller mutating the catalogue. `NewDataset` checks the field length limits itself, because they bound what a curation costs whoever builds one; the wire schema uses the same constants, so a client hears about a limit as a field error first. `Curation` is the one shape of a curation outcome, tags and summary included: `CurationService` returns it and the store keeps it inside `Dataset`. Wire types are Pydantic models that own every HTTP concern (aliases, constraints, `extra="forbid"`, OpenAPI examples) and map from domain objects through `from_attributes`. Routes build `NewDataset` from the validated body, so services never see a Pydantic model.
 
 ### Dependency injection
 
@@ -88,7 +88,7 @@ Every non-2xx response is RFC 9457 problem+json. Three framework overrides are n
 
 ### State and concurrency
 
-There is one uvicorn worker, routes are async, and repository methods never await internally, so every store operation runs atomically on the event loop without a lock. `add()` assigns the id and stores the record in one call (INSERT … RETURNING). The repository protocol therefore has no read-then-write step that an awaiting implementation would need to lock. Id and restart behaviour are in [specs/api-contract.md](../specs/api-contract.md#behaviour-contract).
+There is one uvicorn worker and routes are async. The repository protocol is `async`, so a store that does I/O could implement it, but the in-memory store never awaits inside a method, so each call runs to completion on the event loop without a lock; its tests drive every call in one step to prove it. `add()` takes a `CuratedDataset`, assigns the id and stores the record in one call (INSERT … RETURNING), so the protocol has no read-then-write step that any implementation would need to lock. Id and restart behaviour are in [specs/api-contract.md](../specs/api-contract.md#behaviour-contract).
 
 ### Configuration
 

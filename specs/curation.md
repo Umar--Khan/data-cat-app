@@ -8,12 +8,13 @@ Turns a dataset's name, owner and description into up to six tags and a one-sent
 
 ## Key files
 
-- `backend/src/catalogue/curation/base.py`: `CurationProvider` protocol, `CurationDraft`, `CurationError`, `CurationFailure` (each member carries its row's `detail`), `CurationResult`.
+- `backend/src/catalogue/curation/base.py`: `CurationProvider` protocol, `CurationDraft`, `CurationError`, `CurationFailure` (each member carries its row's `detail`).
+- `backend/src/catalogue/domain/models.py`: `Curation`, the one shape of a curation outcome, which `CurationService` returns and the store keeps.
 - `curation/service.py`: `CurationService`, the failure boundary.
 - `curation/normalise.py`: tag and summary normalisation, shared by both providers.
 - `curation/prompt.py`: `SYSTEM_PROMPT` and `render_dataset()`.
-- `curation/anthropic_provider.py`, `curation/keyword_provider.py`.
-- `curation/factory.py`: `open_curation_provider(settings)`, which selects the provider and owns the SDK client's lifetime.
+- `curation/anthropic_provider.py` (with the private structured-output model), `curation/keyword_provider.py`.
+- `curation/factory.py`: `build_client(settings)` and `open_curation_provider(settings)`, which select the provider, map Settings onto its constructor and own the SDK client's lifetime.
 - `backend/tests/unit/curation/`: provider, service, normaliser and prompt tests. The `test_anthropic_provider.py` docstring links here instead of restating the SDK behaviours.
 
 ## Behaviour contract
@@ -41,12 +42,14 @@ Details:
 - **Call:** `client.beta.messages.with_raw_response.parse(...)`, then `parse()` on the response. The beta namespace carries the refusal fallback, and the raw response keeps the request id and `stop_reason` when parsing fails.
 - **Model:** `CATALOGUE_ANTHROPIC_MODEL` (default `claude-opus-5-5`), with `max_tokens=4096`, since Opus 5.5 always thinks and thinking counts toward the limit.
 - **Effort:** `output_config={"effort": "low"}`, with no `thinking` field. Opus 5.5 cannot disable thinking, so effort is the only control on latency and cost. No sampling parameters: they return 400 on API version 2026-10-21.
-- **Output:** `output_format=CurationDraft`, sent on the wire as `output_config.format` next to `effort`.
-  - `CurationDraft` carries types only. Its docstring and field descriptions are written for Claude, because the SDK sends them as the schema's descriptions.
+- **Output:** `output_format=_ClaudeCuration`, sent on the wire as `output_config.format` next to `effort`.
+  - `_ClaudeCuration` is a private Pydantic model in `anthropic_provider.py`. It carries types only. Its docstring and field descriptions are written for Claude, because the SDK sends them as the schema's descriptions, and its schema title is `CurationDraft`, the name Claude sees.
+  - The provider maps the parsed reply onto the provider-neutral `CurationDraft` dataclass in `base.py`, which is all `CurationService` sees.
   - Limits live in those descriptions and in the normaliser. The SDK moves `maxItems` and `maxLength` out of the request schema into the field's description (as `{maxItems: 6}`) but still enforces them client-side, so a single surplus tag would fail the whole curation.
 - **Caching:** the system prompt is one text block marked `cache_control: {"type": "ephemeral"}`. Below the model's minimum cacheable prefix, the API skips caching silently. The prompt is above it: the first live call, on 2026-10-26, wrote 1,558 tokens to the cache.
 - **Refusal fallback:** `betas=["server-side-fallback-2026-07-01"]` and `fallbacks="default"`. If a safety classifier refuses, the API re-runs the request on the recommended fallback model within the same call. These are sent only when the configured model is in `FALLBACK_MODELS`, a constant in `anthropic_provider.py` (Opus 5.5, Opus 5, Fable 5.1, Sonnet 5.5), so changing the model can never turn every call into a 400.
 - **Deadline:** `Timeout(budget, connect=5)` on the client, `max_retries=1`, and the whole call wrapped in `asyncio.timeout(budget)`, where the budget is `CATALOGUE_ANTHROPIC_TIMEOUT_SECONDS` (20 s). The outer timeout is the real deadline, because the SDK honours any `retry-after` without an upper bound.
+- **Constructor:** `AnthropicCurationProvider(client, model=…, timeout_seconds=…)`, as the keyword provider takes `delay_ms`. Only the factory reads Settings.
 - **Logging:** on success, the provider logs at INFO the model that served the request, token usage (including cache reads and writes), the request id, and whether a fallback ran. A refusal, a `max_tokens` stop or a missing parsed output has no SDK exception behind it, so for those the provider logs at WARNING the stop reason, the refusal category, the serving model, whether a fallback ran and the request id. When `parse()` raises `ValidationError`, it logs at WARNING the raw `stop_reason` and the request id from the raw response, since a reply cut off at `max_tokens` and a refusal partway through fail to parse alike.
 
 ### Prompt
@@ -111,9 +114,9 @@ class CurationProvider(Protocol):
     async def curate(self, new: NewDataset) -> CurationDraft: ...   # raises CurationError(failure)
 ```
 
-- `CurationDraft`: `tags: list[str]`, `summary: str`. This is the raw provider output and the structured-output schema.
-- `CurationResult`: `status`, `provider`, `tags`, `summary`, `detail`. The service returns it to `DatasetService`, which stores it.
-- On the wire: `curation: { status, provider, detail }` ([api-contract.md](./api-contract.md#dataset)). The failure enum stays internal.
+- `CurationDraft`: a frozen dataclass, `tags: tuple[str, ...]` and `summary: str`. It is the raw provider output, which the normaliser may trim to nothing. Claude's structured-output schema is a separate, private model mapped onto it.
+- `Curation` (domain): `status`, `provider`, `tags`, `summary`, `detail`, built with `Curation.completed(provider, tags, summary)` or `Curation.failed(provider, detail)`. `CurationService.curate` returns it, and `DatasetService` stores it unchanged in the `CuratedDataset` it hands the repository. The domain `Dataset` exposes `tags` and `summary` as properties of its curation.
+- On the wire: `tags` and `summary` at the top level of `Dataset`, and `curation: { status, provider, detail }` ([api-contract.md](./api-contract.md#dataset)). The failure enum stays internal.
 
 ## Invariants & decided points
 
@@ -126,7 +129,7 @@ class CurationProvider(Protocol):
 - **The failure path is forced through real configuration** (the offline configuration above). Rejected: a fake failing provider, or a test-only flag.
 - **Keyword mock: weighted facet taxonomy plus a template summary.** It shows real curation logic and is predictable. Rejected: hard-coded tags; a grammar-driven summariser, which produced visible errors such as wrong plurals and broken acronyms on unseen input.
 - **Tests never reach the network or `backend/.env`.** An autouse fixture deletes `ANTHROPIC_*` and `CATALOGUE_*`, sets `ANTHROPIC_BASE_URL=http://127.0.0.1:9` and sets `Settings.model_config["env_file"]` to `None`, so even a `Settings()` built without `_env_file=None` never reads `backend/.env`. Tests build Settings with `_env_file=None`, the same switch `export_openapi()` uses.
-- **Input is bounded** by the API's field limits (at most about 2,300 characters per dataset), which keeps the cost per call predictable and makes a 413 unreachable.
+- **Input is bounded** by the field limits (at most 2,240 characters per dataset), which keep the cost per call predictable. `NewDataset` enforces them for every caller, HTTP or not.
 
 ## Fixture/mock semantics
 
@@ -161,7 +164,7 @@ The stored seed records keep the brief's own tags, summaries and tag order. Thes
 
 ### Claude provider tests
 
-The provider runs the real `AsyncAnthropic` from `build_client()` over `httpx2.MockTransport`, injected through the SDK's `http_client` as a `DefaultAsyncHttpxClient`, with no network. A `CredentialsError` raised inside the transport surfaces from `parse()` unwrapped, which is how the tests show the provider leaves it to `CurationService` as `unexpected`. The behaviours under test are SDK behaviours: when `ValidationError` is raised, the 529 class hierarchy, and the uncapped `retry-after`. A hand-written fake of `parse()` would encode assumptions about them and stay green through an SDK upgrade that changes them. There is one case per failure row, plus retry, deadline and captured-request cases. Canned retryable responses send `retry-after-ms: 1`.
+The provider runs the real `AsyncAnthropic` from `build_client()` over `httpx2.MockTransport`, injected through the SDK's `http_client` as a `DefaultAsyncHttpxClient`, with no network. A `CredentialsError` raised inside the transport surfaces from `parse()` unwrapped, which is how the tests show the provider leaves it to `CurationService` as `unexpected`. The behaviours under test are SDK behaviours: when `ValidationError` is raised, the 529 class hierarchy, the uncapped `retry-after`, and that a reply beyond the limits the descriptions state still parses. A hand-written fake of `parse()` would encode assumptions about them and stay green through an SDK upgrade that changes them. There is one case per failure row, plus retry, deadline and captured-request cases. Canned retryable responses send `retry-after-ms: 1`.
 
 ## Deferred / open
 

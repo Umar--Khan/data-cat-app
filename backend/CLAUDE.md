@@ -27,7 +27,7 @@ Read the spec before changing behaviour it pins. Update it in the same commit as
 1. Wire schema on `CamelModel`. Response fields have no defaults, so every field is required in OpenAPI; nullable is `X | None`, never missing. Enums are PEP 695 `type` aliases so OpenAPI emits named components.
 2. Domain type in `domain/`.
 3. Service method in `services/`, `async def`.
-4. Repository method if needed, in the protocol and the in-memory store. Repository methods never await internally; that is what keeps store operations atomic without a lock.
+4. Repository method if needed, `async def` in the protocol and the in-memory store. The in-memory store's methods never await internally; that is what keeps its operations atomic without a lock.
 5. Domain error in `domain/`, mapped to a problem in `api/problems.py`.
 6. Route handler, `async def`. Its name becomes the camelCase operationId, so renaming it is a contract change. Declare every error status in `responses=` with `ProblemDetails`.
 7. Tests in `tests/api/` (behaviour, every problem row) and `tests/contract/`.

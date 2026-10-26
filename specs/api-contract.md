@@ -9,7 +9,7 @@ The HTTP interface between the React app and the FastAPI backend: the brief's th
 ## Key files
 
 - `backend/src/catalogue/api/routes/datasets.py`, `routes/health.py`: the operations.
-- `backend/src/catalogue/api/schemas.py`: wire models, the camelCase base model, field limits.
+- `backend/src/catalogue/api/schemas.py`: wire models, the camelCase base model. The length limits are constants in `backend/src/catalogue/domain/models.py`, which `NewDataset` also checks.
 - `backend/src/catalogue/api/problems.py`: problem+json handlers, the 405 `Allow` rebuild, the unhandled-error middleware.
 - `backend/src/catalogue/api/openapi.py`: documents error bodies under `application/problem+json`.
 - `backend/src/catalogue/app.py`: `export_openapi()`, the codegen entry point.
@@ -127,6 +127,7 @@ A `RequestValidationError` counts as **malformed** when any of its errors has ty
   - `RequestValidationError` and FastAPI's body-parse `HTTPException(400)` both map to the 400 problems above. The brief requires 400; FastAPI defaults to 422.
   - A 405 rebuilds `Allow` from every route that matches the path. Starlette lists only the first route it matched, which breaks RFC 9110.
   - Unhandled exceptions are rendered by a pure-ASGI middleware inside `CORSMiddleware`. Starlette's own 500 handler runs outside all user middleware, so its response would reach the browser without CORS headers and look like a network failure.
+- **The length limits live in the domain as well as the wire schema.** They bound what a curation costs, so `NewDataset` enforces them for every caller, and the wire schema uses the same constants so a client hears about one as a field error first.
 - **422 never appears.** `POST` and `DELETE` declare a `4XX` response of `ProblemDetails` alongside their explicit 400 or 404, which stops FastAPI documenting 422. There is no app-level `default` response, because it would make schemathesis's "every returned status is documented" check pass vacuously.
 - **Error bodies are documented under `application/problem+json`**, the type they are sent with.
 - **camelCase on the wire.** Python stays snake_case through Pydantic's alias generator.

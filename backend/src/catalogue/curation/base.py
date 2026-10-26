@@ -1,36 +1,21 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final, Protocol, Self
+from typing import Final, Protocol
 
-from pydantic import BaseModel, Field
-
-from catalogue.domain.models import CurationProviderName, CurationStatus, NewDataset
+from catalogue.domain.models import CurationProviderName, NewDataset
 
 
-# The SDK sends this model as the structured-output schema, docstring and descriptions included,
-# so they are written for Claude. It carries no maxItems or maxLength: the SDK moves both out of
-# the schema it sends, into the description text, but still enforces them on the reply, so one
-# surplus tag would fail the whole curation. The descriptions state the limits and the normaliser
-# enforces them.
-class CurationDraft(BaseModel):
-    """Catalogue curation of one dataset: tags in facet order and a one-sentence summary."""
+@dataclass(frozen=True, slots=True)
+class CurationDraft:
+    """A provider's raw tags and summary, which `CurationService` normalises before storing.
 
-    tags: list[str] = Field(
-        description=(
-            "Up to 6 tags, usually 3 to 5, ordered by facet: domain, subject, sensitivity, "
-            "cadence, with at most two per facet. Leave out any facet the dataset gives no "
-            "evidence for. Each tag is a single lowercase word or a short hyphenated phrase, with "
-            'acronyms in upper case (PII, HR, FX). Never a generic tag such as "data".'
-        )
-    )
-    summary: str = Field(
-        description=(
-            'Exactly one sentence of at most 30 words, starting with "A" or "An", saying what '
-            "the dataset is and what it covers, including its cadence when known. It never names "
-            "the owning team or adds facts the dataset does not support."
-        )
-    )
+    Raw means unchecked: a provider may return more tags than are kept, or a summary that is too
+    long or empty, and the normaliser decides what survives.
+    """
+
+    tags: tuple[str, ...]
+    summary: str
 
 
 class CurationFailure(StrEnum):
@@ -81,7 +66,7 @@ class CurationProvider(Protocol):
     """Turns a new dataset into a raw draft.
 
     `CurationService` normalises the draft and turns any exception, `CurationError` or not, into
-    a failed result, so a provider raises `CurationError` only to say which failure it was.
+    a failed curation, so a provider raises `CurationError` only to say which failure it was.
     """
 
     @property
@@ -93,22 +78,3 @@ class CurationProvider(Protocol):
         ...
 
     async def curate(self, new: NewDataset) -> CurationDraft: ...
-
-
-@dataclass(frozen=True, slots=True)
-class CurationResult:
-    """The outcome `CurationService` hands to `DatasetService` to store with the record."""
-
-    status: CurationStatus
-    provider: CurationProviderName
-    tags: tuple[str, ...]
-    summary: str | None
-    detail: str | None
-
-    @classmethod
-    def completed(cls, provider: CurationProviderName, tags: tuple[str, ...], summary: str) -> Self:
-        return cls(status="completed", provider=provider, tags=tags, summary=summary, detail=None)
-
-    @classmethod
-    def failed(cls, provider: CurationProviderName, failure: CurationFailure) -> Self:
-        return cls(status="failed", provider=provider, tags=(), summary=None, detail=failure.detail)

@@ -58,7 +58,7 @@ def test_post_datasets_with_the_test_payload_returns_201_with_tags_and_summary_p
     assert response.json() == {
         "id": "4",
         **TEST_PAYLOAD,
-        "tags": DRAFT.tags,
+        "tags": list(DRAFT.tags),
         "summary": DRAFT.summary,
         "curation": {"status": "completed", "provider": "keyword", "detail": None},
         "createdAt": "2026-10-25T09:30:01Z",

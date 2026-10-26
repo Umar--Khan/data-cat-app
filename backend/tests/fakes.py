@@ -8,7 +8,7 @@ from catalogue.curation.base import CurationDraft
 from catalogue.domain.models import CurationProviderName, NewDataset
 
 DRAFT = CurationDraft(
-    tags=["trading", "finance", "settlements", "daily"],
+    tags=("trading", "finance", "settlements", "daily"),
     summary=(
         "A daily export of confirmed trades covering instrument type, counterparty, and notional "
         "value."
