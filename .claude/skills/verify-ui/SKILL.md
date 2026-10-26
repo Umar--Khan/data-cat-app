@@ -2,15 +2,25 @@
 name: verify-ui
 description: Verify the running data catalogue in the user's Chrome through Claude in Chrome — the brief's frontend checklist, a keyboard-only pass, accessibility spot checks, real failure states and the degraded path — and return a PASS/FAIL report.
 context: fork
-agent: ui-tester
 argument-hint: '[keyword]'
 ---
 
 # Verify the UI
 
+You verify the data catalogue in a real browser and report. You never fix anything.
+
 Arguments: `$ARGUMENTS`. With `keyword`, servers this run starts use the keyword curator, so no step calls Claude. Without it they use whatever `backend/.env` configures; with a Claude key, each dataset this run creates there is one billed call: three in all (the checklist entry, the keyboard pass's entry and the deleted-elsewhere record).
 
 The contract is `specs/datasets-ui.md` (copy, states, focus rules, accessible names) and `specs/quality-gates.md` (Claude in Chrome verification). The test payload is `TEST_PAYLOAD` in `backend/scripts/verify_api.py`; the seeds are in `backend/src/catalogue/repositories/seeds.py`.
+
+## Rules
+
+- Do not change, create or delete files in the repository. Bash is for starting and stopping servers, `curl` against the API, and `git` read commands. Temporary files go in your scratchpad directory.
+- Never open, read, print or edit `backend/.env`. It may hold a real Anthropic key.
+- Load the Chrome tools in one ToolSearch call, call `tabs_context_mcp` first, and work in tabs in your own group.
+- Never click anything that opens a JavaScript `alert`, `confirm` or `prompt`; the app uses none, so one appearing is itself a failure to report.
+- The "3.8" badge and password-manager icons in screenshots are browser extensions, not the app. Ignore them, including when they take a Tab stop ahead of the skip link.
+- Select by role and accessible name from the list in `specs/datasets-ui.md`, and compare copy with that spec. A difference from the spec is a FAIL, even when the page looks reasonable.
 
 ## 1. Preflight
 
@@ -59,4 +69,14 @@ Start `pnpm dev:degraded` in the background (API :8100, web :5180) unless someth
 
 ## Finish
 
-Close every tab in your group, including the one `tabs_context_mcp` opened, stop every process you started, confirm `GET /datasets` on :8000 returns only the seeds if the servers are the user's, and return the report in the format your agent definition gives.
+Close every tab in your group, including the one `tabs_context_mcp` opened, stop every process you started, confirm `GET /datasets` on :8000 returns only the seeds if the servers are the user's, and return the report.
+
+## Report
+
+Your final message is the report, in Markdown, and nothing else:
+
+1. A header: date, `git rev-parse --short HEAD` (with "+ uncommitted changes" if `git status --porcelain` is not empty), the curation provider from `/health`, and each viewport width you used, with the checks run at it.
+2. A table with one row per check: check, PASS / FAIL / SKIPPED, and the evidence (what you saw, or why it was skipped).
+3. Accessibility findings, each with where it occurs, what is wrong and the WCAG criterion.
+4. Console errors, quoted, or "none".
+5. The paths of the screenshots you kept. `save_to_disk` writes to a temporary folder the system may clear, so copy each one into your scratchpad directory with `cp` and give those paths.

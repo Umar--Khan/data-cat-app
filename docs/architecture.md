@@ -170,7 +170,7 @@ Coverage is gated at 95 % on both sides. Husky runs lint-staged on commit, commi
   `backend/CLAUDE.md` holds the Python API conventions: layering, error handling, adding an operation, testing. `frontend/CLAUDE.md` holds the frontend ones. Claude Code loads each when it works in that directory.
 
 - **Skills and agents.**
-  - `verify-ui` drives the running app through Claude in Chrome, run by the `ui-tester` agent.
+  - `verify-ui` drives the running app through Claude in Chrome, in a forked subagent.
   - `verify-api` runs the live API checklist.
   - `spec-auditor` checks specs against the code.
 
@@ -214,5 +214,3 @@ Subsystem decisions live in each spec's _Invariants & decided points_.
 
 - **`anthropic` 2.x was first released on 2026-10-21.** The lockfile pins it, and 1.17 has the same call shape if a regression appears.
 - **Tooling ahead of its peers.** `eslint-plugin-jsx-a11y` declares ESLint ≤ 9 and `openapi-typescript` declares TypeScript 5; both run correctly on ESLint 10 and TypeScript 6, with the peer overrides recorded in `pnpm-workspace.yaml`. React Compiler 1.0 runs on Babel 7, as its own dependency requires.
-
-Unmeasured curation latency and Claude in Chrome from a forked skill are tracked under _Deferred / open_ in [curation.md](../specs/curation.md) and [quality-gates.md](../specs/quality-gates.md).

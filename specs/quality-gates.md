@@ -12,7 +12,7 @@ What each test layer proves, the thresholds that fail a change, what the git hoo
 - `.github/workflows/ci.yml`, `.github/actions/setup/action.yml`.
 - `frontend/vite.config.ts` (Vitest and coverage), `frontend/eslint.config.js`, `frontend/playwright.config.ts`, `frontend/e2e/`, `frontend/src/test/`.
 - `backend/pyproject.toml` (pytest, coverage, ruff, mypy, import-linter), `backend/tests/`, `backend/scripts/verify_api.py`.
-- `.claude/skills/verify-ui/`, `.claude/skills/verify-api/`, `.claude/agents/ui-tester.md`, `.claude/agents/spec-auditor.md`, `docs/verification.md`.
+- `.claude/skills/verify-ui/`, `.claude/skills/verify-api/`, `.claude/agents/spec-auditor.md`, `docs/verification.md`.
 
 ## Behaviour contract
 
@@ -122,7 +122,7 @@ With `--provider anthropic` (a key is required; without one it stops before star
 
 ### Claude in Chrome verification
 
-**`/verify-ui`** is a skill, run in the `ui-tester` agent (`context: fork`). It drives the running app in the user's Chrome. With the argument `keyword`, servers it starts use the keyword curator; otherwise `backend/.env` decides, and with a Claude key each of the three datasets it creates on :8000 (the checklist entry, the keyboard pass's entry and the deleted-elsewhere record) is one billed call.
+**`/verify-ui`** is a skill that runs in a forked subagent (`context: fork`), so the screenshot-heavy run stays out of the invoking conversation. It drives the running app in the user's Chrome. With the argument `keyword`, servers it starts use the keyword curator; otherwise `backend/.env` decides, and with a Claude key each of the three datasets it creates on :8000 (the checklist entry, the keyboard pass's entry and the deleted-elsewhere record) is one billed call.
 
 1. **Preflight.** If nothing is listening on :8000 and :5173, it starts the API and Vite itself, as two processes with the commands `scripts/dev.mjs` uses (the API without `--reload`), so step 5 can stop and restart the API alone (`pnpm dev` stops both when either exits). If the servers are already running, it checks that `GET /datasets` returns exactly the three seeds, and asks for a restart if not. The provider from `/health` goes in the report header.
 2. **The brief's frontend checklist.** The delete step removes only the record the run created.
@@ -137,12 +137,12 @@ With `--provider anthropic` (a key is required; without one it stops before star
 6. **Console errors.**
 7. **The degraded path,** against `pnpm dev:degraded`.
 
-`ui-tester` returns its report as its final message: the date, the commit, the provider, a PASS/FAIL table, accessibility findings, console errors, and the paths of the screenshots it saved. The invoking session writes it to `docs/verification.md`, with the screenshots it keeps under `docs/verification/`. No GIF is exported, because that is a browser download. The committed report must be all PASS for the commit it names.
+The forked run returns its report as its final message: the date, the commit, the provider, a PASS/FAIL table, accessibility findings, console errors, and the paths of the screenshots it saved. The invoking session writes it to `docs/verification.md`, with the screenshots it keeps under `docs/verification/`. No GIF is exported, because that is a browser download. The committed report must be all PASS for the commit it names.
 
 **Other tooling:**
 
 - **`/verify-api`** (skill) runs `pnpm verify:api` and `pnpm verify:api --degraded`. With a key present it also runs `--provider anthropic`, once. It sets `disable-model-invocation`, so that billed call happens only when someone invokes the skill. When a check fails, it fixes the code, never the script's expectations.
-- **`ui-tester`** (agent) uses `disallowedTools: Edit, Write, NotebookEdit` rather than a `tools` allowlist, so it keeps ToolSearch, which the deferred Chrome tools need. Bash stays available for starting servers, so not editing files is a rule in its prompt, not a hard guarantee.
+- **No `ui-tester` agent.** `/verify-ui` carries its own rules and report format and forks into the default subagent, which keeps ToolSearch for the deferred Chrome tools. A dedicated agent would add only a denial of Edit and Write, and Bash, which the run needs for its servers, could write files anyway; so not editing files is a rule in the skill.
 - **`spec-auditor`** (agent) is read-only.
   - It compares `specs/`, `docs/architecture.md` and the CLAUDE.md files with the code.
   - It classifies each pinned statement as holds, invalidated or new-pin candidate, and proposes exact old→new edits.
@@ -170,4 +170,3 @@ With `--provider anthropic` (a key is required; without one it stops before star
 ## Deferred / open
 
 - Firefox and WebKit projects are omitted: about 300 MB of downloads for one page of standard CSS. Each is a one-line addition.
-- The first `/verify-ui` run followed the skill through a general-purpose agent, because Claude Code loads a skill added mid-session only after a restart; that agent reached the Chrome tools through ToolSearch. A run through the forked skill and `ui-tester` itself is still to be confirmed. If it cannot reach the Chrome tools, `/verify-ui` runs inline with the same steps.
