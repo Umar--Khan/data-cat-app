@@ -15,6 +15,7 @@ const localOnly = new Set([
   'backend/.env',
   'frontend/.env.local',
   '.claude/plans/',
+  '.claude/worktrees/',
   '.claude/settings.local.json',
 ])
 const missing = []

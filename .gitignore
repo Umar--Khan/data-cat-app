@@ -3,8 +3,9 @@
 # The original brief stays local; it is not part of the repository.
 README.txt
 
-# Session working files (plans, notes) stay out of the repository.
+# Session working files (plans, notes, agent worktrees) stay out of the repository.
 .claude/plans/
+.claude/worktrees/
 .claude/settings.local.json
 
 # Local configuration; backend/.env can hold an Anthropic API key.
