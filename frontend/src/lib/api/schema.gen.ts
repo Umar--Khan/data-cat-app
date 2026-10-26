@@ -4,6 +4,41 @@
  */
 
 export interface paths {
+    "/datasets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List every dataset, oldest first */
+        get: operations["listDatasets"];
+        put?: never;
+        /** Register a dataset, curate it and store it */
+        post: operations["createDataset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a dataset and return it */
+        delete: operations["deleteDataset"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -25,8 +60,81 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Curation */
+        Curation: {
+            /**
+             * Detail
+             * @description Why curation failed, as a sentence safe to show users. Null unless failed.
+             */
+            detail: string | null;
+            /** @description Who produced the tags and summary. `seed` marks the hand-curated sample data. */
+            provider: components["schemas"]["CurationSource"];
+            status: components["schemas"]["CurationStatus"];
+        };
         /** @enum {string} */
         CurationProviderName: "anthropic" | "keyword";
+        /** @enum {string} */
+        CurationSource: "anthropic" | "keyword" | "seed";
+        /** @enum {string} */
+        CurationStatus: "completed" | "failed";
+        /**
+         * Dataset
+         * @description A catalogue entry as stored.
+         */
+        Dataset: {
+            /**
+             * Createdat
+             * Format: date-time
+             * @description When the entry was stored, in UTC.
+             */
+            createdAt: string;
+            curation: components["schemas"]["Curation"];
+            /** Description */
+            description: string;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Owner */
+            owner: string;
+            /**
+             * Summary
+             * @description One sentence. Null only when curation failed.
+             */
+            summary: string | null;
+            /**
+             * Tags
+             * @description Providers are asked for facet order: domain, subject, sensitivity, cadence. The seed records keep the brief's own order. Empty only when curation failed.
+             */
+            tags: string[];
+        };
+        /**
+         * DatasetCreate
+         * @description A dataset to register. Each field is trimmed before its length is checked.
+         * @example {
+         *       "description": "Daily export of confirmed trades including instrument type, counterparty, notional value, and settlement date.",
+         *       "name": "Trade Confirmations",
+         *       "owner": "Middle Office"
+         *     }
+         */
+        DatasetCreate: {
+            /** Description */
+            description: string;
+            /** Name */
+            name: string;
+            /** Owner */
+            owner: string;
+        };
+        /** FieldError */
+        FieldError: {
+            /**
+             * Field
+             * @description The request body property, as sent.
+             */
+            field: string;
+            /** Message */
+            message: string;
+        };
         /** Health */
         Health: {
             curationProvider: components["schemas"]["CurationProviderName"];
@@ -36,6 +144,27 @@ export interface components {
              */
             status: "ok";
         };
+        /**
+         * ProblemDetails
+         * @description An RFC 9457 problem: the body of every error response.
+         */
+        ProblemDetails: {
+            /** Detail */
+            detail: string;
+            /**
+             * Errors
+             * @description One entry per invalid field. Empty unless the request body failed validation.
+             */
+            errors: components["schemas"]["FieldError"][];
+            /** Instance */
+            instance: string;
+            /** Status */
+            status: number;
+            /** Title */
+            title: string;
+            /** Type */
+            type: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -43,10 +172,121 @@ export interface components {
     headers: never;
     pathItems: never;
 }
+export type Curation = components['schemas']['Curation'];
 export type CurationProviderName = components['schemas']['CurationProviderName'];
+export type CurationSource = components['schemas']['CurationSource'];
+export type CurationStatus = components['schemas']['CurationStatus'];
+export type Dataset = components['schemas']['Dataset'];
+export type DatasetCreate = components['schemas']['DatasetCreate'];
+export type FieldError = components['schemas']['FieldError'];
 export type Health = components['schemas']['Health'];
+export type ProblemDetails = components['schemas']['ProblemDetails'];
 export type $defs = Record<string, never>;
 export interface operations {
+    listDatasets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dataset"][];
+                };
+            };
+        };
+    };
+    createDataset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DatasetCreate"];
+            };
+        };
+        responses: {
+            /** @description Stored, whether or not curation succeeded. `curation` says which. */
+            201: {
+                headers: {
+                    /** @description The new dataset's path, as a relative reference */
+                    Location: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dataset"];
+                };
+            };
+            /** @description The body is malformed or has invalid fields */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Client error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    deleteDataset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dataset"];
+                };
+            };
+            /** @description No dataset has this id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Client error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     getHealth: {
         parameters: {
             query?: never;

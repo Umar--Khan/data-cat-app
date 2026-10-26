@@ -3,9 +3,11 @@ from typing import Annotated, TypedDict, cast
 from fastapi import Depends, Request
 
 from catalogue.domain.models import CurationProviderName
+from catalogue.services.datasets import DatasetService
 
 
 class LifespanState(TypedDict):
+    datasets: DatasetService
     curation_provider_name: CurationProviderName
 
 
@@ -15,8 +17,13 @@ def _lifespan_state(request: Request) -> LifespanState:
     return cast("LifespanState", request.state)
 
 
+def get_datasets(request: Request) -> DatasetService:
+    return _lifespan_state(request)["datasets"]
+
+
 def get_curation_provider_name(request: Request) -> CurationProviderName:
     return _lifespan_state(request)["curation_provider_name"]
 
 
+DatasetServiceDep = Annotated[DatasetService, Depends(get_datasets)]
 CurationProviderNameDep = Annotated[CurationProviderName, Depends(get_curation_provider_name)]

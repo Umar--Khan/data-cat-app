@@ -31,7 +31,7 @@ The HTTP interface between the React app and the FastAPI backend: the brief's th
 - **Ids** are strings from a counter that continues after the seeds and is never reused: create gives `"4"`, delete `"4"`, create gives `"5"`.
 - **`createdAt`** is taken after curation, immediately before `add()`. List order and `createdAt` therefore always agree, even when two POSTs overlap.
 - **`Location`** is a relative reference. There is no `GET /datasets/{id}`, so following it returns `405` with `Allow: DELETE`.
-- An unknown route returns `404`. An unsupported method returns `405` with an `Allow` header listing every method the path supports.
+- An unknown route returns `404`, and so does a known path with a trailing slash: Starlette's slash redirect is turned off, because it answers with a bare 307 to an absolute URL built from the `Host` header. An unsupported method returns `405` with an `Allow` header listing every method the path supports.
 - **Restarting the process restores the startup state**, including the restarts `--reload` triggers. Storage is in memory.
 
 ## Data contract
@@ -73,7 +73,7 @@ The HTTP interface between the React app and the FastAPI backend: the brief's th
 
 ### Problem details
 
-Every non-2xx response is `application/problem+json`, with `type`, `title`, `status`, `detail`, `instance` and `errors` always present:
+Every non-2xx response is `application/problem+json`, with `type`, `title`, `status`, `detail`, `instance` and `errors` always present. `instance` is the request path percent-encoded as a URI reference (RFC 9457), while `detail` quotes it decoded:
 
 ```json
 {

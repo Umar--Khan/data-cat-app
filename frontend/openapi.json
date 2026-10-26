@@ -1,12 +1,177 @@
 {
   "components": {
     "schemas": {
+      "Curation": {
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why curation failed, as a sentence safe to show users. Null unless failed.",
+            "title": "Detail"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/CurationSource",
+            "description": "Who produced the tags and summary. `seed` marks the hand-curated sample data."
+          },
+          "status": {
+            "$ref": "#/components/schemas/CurationStatus"
+          }
+        },
+        "required": [
+          "status",
+          "provider",
+          "detail"
+        ],
+        "title": "Curation",
+        "type": "object"
+      },
       "CurationProviderName": {
         "enum": [
           "anthropic",
           "keyword"
         ],
         "type": "string"
+      },
+      "CurationSource": {
+        "enum": [
+          "anthropic",
+          "keyword",
+          "seed"
+        ],
+        "type": "string"
+      },
+      "CurationStatus": {
+        "enum": [
+          "completed",
+          "failed"
+        ],
+        "type": "string"
+      },
+      "Dataset": {
+        "description": "A catalogue entry as stored.",
+        "properties": {
+          "createdAt": {
+            "description": "When the entry was stored, in UTC.",
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "curation": {
+            "$ref": "#/components/schemas/Curation"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "One sentence. Null only when curation failed.",
+            "title": "Summary"
+          },
+          "tags": {
+            "description": "Providers are asked for facet order: domain, subject, sensitivity, cadence. The seed records keep the brief's own order. Empty only when curation failed.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 6,
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "owner",
+          "description",
+          "tags",
+          "summary",
+          "curation",
+          "createdAt"
+        ],
+        "title": "Dataset",
+        "type": "object"
+      },
+      "DatasetCreate": {
+        "additionalProperties": false,
+        "description": "A dataset to register. Each field is trimmed before its length is checked.",
+        "examples": [
+          {
+            "description": "Daily export of confirmed trades including instrument type, counterparty, notional value, and settlement date.",
+            "name": "Trade Confirmations",
+            "owner": "Middle Office"
+          }
+        ],
+        "properties": {
+          "description": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Owner",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "owner",
+          "description"
+        ],
+        "title": "DatasetCreate",
+        "type": "object"
+      },
+      "FieldError": {
+        "properties": {
+          "field": {
+            "description": "The request body property, as sent.",
+            "title": "Field",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "message"
+        ],
+        "title": "FieldError",
+        "type": "object"
       },
       "Health": {
         "properties": {
@@ -25,6 +190,49 @@
         ],
         "title": "Health",
         "type": "object"
+      },
+      "ProblemDetails": {
+        "description": "An RFC 9457 problem: the body of every error response.",
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "errors": {
+            "description": "One entry per invalid field. Empty unless the request body failed validation.",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail",
+          "instance",
+          "errors"
+        ],
+        "title": "ProblemDetails",
+        "type": "object"
       }
     }
   },
@@ -34,6 +242,132 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/datasets": {
+      "get": {
+        "operationId": "listDatasets",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Dataset"
+                  },
+                  "title": "Response Listdatasets",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List every dataset, oldest first"
+      },
+      "post": {
+        "operationId": "createDataset",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatasetCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Dataset"
+                }
+              }
+            },
+            "description": "Stored, whether or not curation succeeded. `curation` says which.",
+            "headers": {
+              "Location": {
+                "description": "The new dataset's path, as a relative reference",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "The body is malformed or has invalid fields"
+          },
+          "4XX": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Client error"
+          }
+        },
+        "summary": "Register a dataset, curate it and store it"
+      }
+    },
+    "/datasets/{id}": {
+      "delete": {
+        "operationId": "deleteDataset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Dataset"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "No dataset has this id"
+          },
+          "4XX": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Client error"
+          }
+        },
+        "summary": "Delete a dataset and return it"
+      }
+    },
     "/health": {
       "get": {
         "operationId": "getHealth",

@@ -118,6 +118,8 @@ source_modules = [
     "catalogue.core",
 ]
 forbidden_modules = ["anthropic"]
+# The composition root reaches the SDK through curation.factory, which it has to call.
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "Domain has no framework imports"

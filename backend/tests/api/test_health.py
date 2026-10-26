@@ -6,13 +6,24 @@ from pydantic import SecretStr
 
 from catalogue.app import create_app
 from catalogue.core.config import Settings
+from tests.fakes import FakeCurationProvider
 
 
-def test_health_reports_the_keyword_provider(client: TestClient) -> None:
-    response = client.get("/health")
+def test_health_reports_the_keyword_provider(settings: Settings) -> None:
+    with TestClient(create_app(settings)) as client:
+        response = client.get("/health")
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "curationProvider": "keyword"}
+
+
+def test_health_reports_an_injected_provider(settings: Settings) -> None:
+    provider = FakeCurationProvider(name="anthropic", model="claude-test-model")
+
+    with TestClient(create_app(settings, curation_provider=provider)) as client:
+        response = client.get("/health")
+
+    assert response.json() == {"status": "ok", "curationProvider": "anthropic"}
 
 
 def test_health_reports_anthropic_under_auto_when_a_key_is_set() -> None:
