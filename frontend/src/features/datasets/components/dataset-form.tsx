@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -21,6 +21,7 @@ const pendingMessage = 'Generating tags and a summary. This can take up to 20 se
 export function DatasetForm() {
   const { mutate, isPending } = useCreateDataset()
   const [submitError, setSubmitError] = useState<string>()
+  const formRef = useRef<HTMLFormElement>(null)
   const {
     register,
     handleSubmit,
@@ -42,7 +43,11 @@ export function DatasetForm() {
         // setFocus looks the input up among the registered fields, which a plain reset empties
         // until the next render registers them again.
         reset(undefined, { keepFieldsRef: true })
-        setFocus('name')
+        // Curation can take 20 seconds, long enough to move on to the list, and a focus jump then
+        // would send the next key press to the form. Focus on the body counts as still in the
+        // form: Safari leaves it there after a click on the submit button.
+        const focused = document.activeElement
+        if (focused === document.body || formRef.current?.contains(focused)) setFocus('name')
       },
       onError: (error) => {
         if (!(error instanceof ApiError && applyServerErrors(error, setError, fields))) {
@@ -54,6 +59,7 @@ export function DatasetForm() {
 
   return (
     <form
+      ref={formRef}
       noValidate
       onSubmit={(event) => {
         // Cleared on every attempt, so a repeated failure mounts the alert again and is announced.

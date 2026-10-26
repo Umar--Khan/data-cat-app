@@ -281,6 +281,40 @@ describe('DatasetForm', () => {
     expect(apiRequests()).toEqual(['POST /datasets'])
   })
 
+  it('moves focus to Name after a create when focus is on another of its fields', async () => {
+    const gate = hold('POST')
+    const screen = await renderForm()
+
+    await screen.fill(tradeConfirmations)
+    await userEvent.click(screen.submitButton)
+    await gate.arrived
+    await userEvent.click(screen.field.owner)
+    await expect.element(screen.field.owner).toHaveFocus()
+    await expectNoA11yViolations()
+
+    gate.release()
+    await expect.element(screen.getByText('Added "Trade Confirmations"')).toBeVisible()
+    await expect.element(screen.field.name).toHaveFocus()
+    await expectNoA11yViolations()
+  })
+
+  it('moves focus to Name after a create when nothing has focus, as Safari leaves it after a click on the button', async () => {
+    const gate = hold('POST')
+    const screen = await renderForm()
+
+    await screen.fill(tradeConfirmations)
+    await userEvent.click(screen.submitButton)
+    await gate.arrived
+    screen.pendingButton.element().blur()
+    expect(document.activeElement).toBe(document.body)
+    await expectNoA11yViolations()
+
+    gate.release()
+    await expect.element(screen.getByText('Added "Trade Confirmations"')).toBeVisible()
+    await expect.element(screen.field.name).toHaveFocus()
+    await expectNoA11yViolations()
+  })
+
   it('shows server field errors on their fields, focuses the first in form order, and keeps the values', async () => {
     createInvalid([
       { field: 'description', message: 'This field must be at most 2000 characters.' },

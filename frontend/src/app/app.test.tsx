@@ -266,6 +266,41 @@ describe('App', () => {
     )
   })
 
+  it('leaves focus on the list when a create it moved on from lands', async () => {
+    const gate = hold('POST')
+    const screen = await renderLoaded()
+    const deleteInventory = screen.list.getByRole('button', {
+      name: `Delete ${productInventory.name}`,
+    })
+
+    await userEvent.fill(screen.field.name, tradeConfirmations.name)
+    await userEvent.fill(screen.field.owner, tradeConfirmations.owner)
+    await userEvent.fill(screen.field.description, tradeConfirmations.description)
+    await userEvent.click(screen.addButton)
+    await gate.arrived
+    await userEvent.tab()
+    await userEvent.tab()
+    await expect.element(deleteInventory).toHaveFocus()
+    await expectNoA11yViolations()
+
+    gate.release()
+    await expect.element(screen.row(tradeConfirmations.name)).toBeVisible()
+    // The form resets in the same callback that would have moved focus.
+    await expect.element(screen.field.name).toHaveValue('')
+    await expect.element(deleteInventory).toHaveFocus()
+    await expectToast('Added "Trade Confirmations"')
+    await expectNoA11yViolations()
+
+    // The Enter meant for Delete opens its dialog rather than submitting the emptied form.
+    await userEvent.keyboard('{Enter}')
+    await expect
+      .element(page.getByRole('alertdialog', { name: `Delete "${productInventory.name}"?` }))
+      .toBeVisible()
+    await expect.element(screen.field.name).not.toHaveAttribute('aria-invalid')
+    expect(apiRequests()).toEqual(['GET /datasets', 'POST /datasets'])
+    await expectNoA11yViolations()
+  })
+
   it('moves focus to its Datasets heading when the last dataset is deleted', async () => {
     store.reset([customerTransactions])
     const screen = await renderApp()

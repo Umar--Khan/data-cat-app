@@ -44,7 +44,7 @@ e2e/                     Playwright specs; fixtures.ts holds the cleanup fixture
 
 - Every control has a visible `<label htmlFor>`. Hints and errors are linked through `aria-describedby`. `aria-invalid="true"` is set only while there is an error.
 - Native elements first: `button`, `label`, `ul`, `dl`, and `<dialog>` with `showModal()` for confirmation. No `window.confirm`, no component library, no positive `tabIndex`.
-- Focus moves are specified: the first invalid field after a failed submit, Name after a create, the neighbouring row's heading after a delete (the "Datasets" heading when none is left), the "Datasets" heading after Try again and from the skip link, and the fallback's heading when the page fails to render. A pending button uses `aria-disabled`, not `disabled`, so it keeps focus.
+- Focus moves are specified: the first invalid field after a failed submit, Name after a create unless focus has left the form, the neighbouring row's heading after a delete (the "Datasets" heading when none is left), the "Datasets" heading after Try again and from the skip link, and the fallback's heading when the page fails to render. A pending button uses `aria-disabled`, not `disabled`, so it keeps focus.
 - Live regions are mounted before their text changes. `role="alert"` is only for errors that follow a user action.
 - Accessible names are contract, listed in `specs/datasets-ui.md`. Tests, Playwright and `/verify-ui` select by them, so renaming one is a spec change.
 

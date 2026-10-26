@@ -48,7 +48,7 @@ The single page of the app: a form to register a dataset and, below it, the cata
   - Inputs are `readOnly`.
   - An always-mounted `role="status"` line shows "Generating tags and a summary. This can take up to 20 seconds."
   - There is no client-side timeout, and the POST is never retried.
-- **Success.** The form resets once `handleSubmit` has settled, so the next entry starts in the not-yet-submitted validation state. Focus moves to Name.
+- **Success.** The form resets once `handleSubmit` has settled, so the next entry starts in the not-yet-submitted validation state. Focus moves to Name only when it is still inside the form, or on the body, where Safari leaves it after a click on a button. Focus the user moved elsewhere while curation ran, such as to a row's Delete button, stays there, so a key press meant for that control never lands in the emptied form.
   - Curation completed: success toast `Added "{name}"`.
   - Curation failed: warning toast `Saved "{name}" without AI tags`, with `curation.detail` as its description.
   - The new row appears at the end of the list.
