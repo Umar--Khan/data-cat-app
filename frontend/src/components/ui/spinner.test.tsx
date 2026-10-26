@@ -1,16 +1,9 @@
-/// <reference types="@vitest/browser-playwright" />
-import { describe, expect, it, onTestFinished } from 'vitest'
-import { cdp, page } from 'vitest/browser'
+import { describe, expect, it } from 'vitest'
+import { page } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { expectNoA11yViolations } from '@/test/a11y'
+import { emulateMedia } from '@/test/emulate-media'
 import { Spinner } from './spinner'
-
-async function emulateMedia(features: { name: string; value: string }[]) {
-  await cdp().send('Emulation.setEmulatedMedia', { features })
-  onTestFinished(async () => {
-    await cdp().send('Emulation.setEmulatedMedia', { features: [] })
-  })
-}
 
 async function renderSpinner(className?: string) {
   const screen = await render(<Spinner className={className} />)

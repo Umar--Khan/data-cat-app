@@ -23,7 +23,7 @@ Design principles:
 5. **Native before ARIA.** `button`, `label`, `ul`, `dl` and `dialog` come first. ARIA only adds names, descriptions and live regions.
 6. **Quiet type.** Inter Variable at weights 400, 500 and 600: `text-2xl` for the `h1`, `text-lg` for `h2`, `text-base` for `h3` and body, `text-sm` for labels and metadata, `text-xs` for tags and badges.
 7. **4 px rhythm**, on Tailwind's default spacing scale: field gap `1.5`, card padding `5`–`6`, gap between cards `3`, between sections `8`.
-8. **Restrained motion.** Colour and opacity only, 150 ms or less, behind `motion-safe`. The one exception is the pending spinner's rotation, also behind `motion-safe`: under reduced motion it stays still and the button's label carries the state. The one exception is the pending spinner's rotation, also behind `motion-safe`, which stops under reduced motion while the button label still carries the state.
+8. **Restrained motion.** Colour and opacity only, 150 ms or less, behind `motion-safe`. Two exceptions: the pending spinner's rotation, also behind `motion-safe`, which stops under reduced motion while the button's label carries the state; and sonner's own 400 ms slide and fade, which sonner turns off under reduced motion.
 
 ## Data contract
 
@@ -64,7 +64,7 @@ Tokens. Values are Tailwind 4 palette colours in OKLCH. Ratios are WCAG contrast
 
 - **Focus.** A global `:focus-visible` outline: 2 px, `focus` colour, 2 px offset. Components never remove it.
 - **Forced colours.** Buttons and badges carry `border border-transparent`, so they keep a visible boundary in high-contrast mode, where backgrounds are dropped.
-- **The sonner overrides are unlayered on purpose.** sonner injects unlayered CSS, which beats anything inside `@layer`. Its default rich colours measure 3.07–4.36:1, below AA, so they are mapped to the tokens above.
+- **The sonner overrides are unlayered on purpose.** sonner injects unlayered CSS, which beats anything inside `@layer`, and injects it after `index.css`, so each override carries an extra `html` selector. Its default rich colours measure 3.07–4.36:1, below AA, so they are mapped to the tokens above: titles and icons in the type's colour, descriptions in `fg`, as in the Alert primitive. The overrides also restore the global focus ring, which sonner removes with `outline: none`, set toast text in rem, and enlarge the close button to 24 px.
 - **Light only** (`color-scheme: light`). Because everything goes through tokens, dark mode means redefining these variables under a media query.
 
 ## Deferred / open

@@ -3,17 +3,12 @@ import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { expectNoA11yViolations } from '@/test/a11y'
+import { focusRing } from '@/test/focus-ring'
 import { Button } from './button'
 import { ConfirmDialog } from './confirm-dialog'
 
 const title = 'Delete "Sales"?'
 const description = "It will be removed from the catalogue. This can't be undone."
-const focusRing = {
-  outlineStyle: 'solid',
-  outlineWidth: '2px',
-  outlineOffset: '2px',
-  outlineColor: 'var(--color-focus)',
-}
 
 function DeleteRow({ onConfirm = () => undefined }: { onConfirm?: () => void }) {
   const [open, setOpen] = useState(false)

@@ -1,24 +1,11 @@
-/// <reference types="@vitest/browser-playwright" />
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
-import { cdp, page, userEvent } from 'vitest/browser'
+import { describe, expect, it, vi } from 'vitest'
+import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { expectNoA11yViolations } from '@/test/a11y'
+import { emulateMedia } from '@/test/emulate-media'
+import { focusRing } from '@/test/focus-ring'
 import { Alert } from './alert'
 import { Button } from './button'
-
-const focusRing = {
-  outlineStyle: 'solid',
-  outlineWidth: '2px',
-  outlineOffset: '2px',
-  outlineColor: 'var(--color-focus)',
-}
-
-async function emulateMedia(features: { name: string; value: string }[]) {
-  await cdp().send('Emulation.setEmulatedMedia', { features })
-  onTestFinished(async () => {
-    await cdp().send('Emulation.setEmulatedMedia', { features: [] })
-  })
-}
 
 describe('Button', () => {
   it('renders every variant, size and the pending state with no axe violations', async () => {

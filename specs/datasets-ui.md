@@ -100,15 +100,15 @@ Every badge carries text. Colour and icon only reinforce it.
    - **404:** the row is removed from the list cache. Info toast: `"{name}" was already removed`.
    - **Any other failure:** the row reappears as soon as the mutation stops pending. Error toast: `Couldn't delete "{name}"`, with the message. The list refetches in the background, not awaited.
 
-   Cache removals happen after `cancelQueries` and before the mutation stops pending, so the row never flashes back.
+   Cache removals happen after `cancelQueries` and before the mutation stops pending, so the row never flashes back. A refresh that `cancelQueries` stopped is started again after the write, so a failed delete's background refetch is not lost to an overlapping success.
 
 ### Toasts
 
 - sonner, bottom-right, at most three visible.
 - The close button is enlarged to 24×24 px.
 - Success and info toasts last 5 s. Warning and error toasts last 10 s and have a close button.
-- Toasts pause on hover and focus, and Alt+T reaches the region.
-- `html { scroll-padding-bottom }` keeps a focused element from scrolling underneath the toast stack, which matters on narrow screens where toasts are full width (WCAG 2.4.11).
+- Toasts pause on hover and focus, and Alt+T reaches the region. sonner pauses only while its stack is expanded, so focus inside the stack expands it; while the list Alt+T focuses holds focus, its toasts carry the focus ring, since the list has no height of its own.
+- `html { scroll-padding-bottom }` keeps a focused element from scrolling underneath the toast stack, which matters on narrow screens where toasts are full width (WCAG 2.4.11). It is sized from the front toast's height as sonner measures it, so a long dataset name or enlarged text cannot outgrow it, and it never drops below 10rem, so the page's bottom padding holds still for short toasts. Toast text is never truncated.
 
 ### Render failure
 
@@ -117,10 +117,11 @@ An error boundary at the root shows a fallback with a reload button.
 ## Data contract
 
 - **Types** come from `schema.gen.ts`: `Dataset`, `DatasetCreate`, `ProblemDetails`, `FieldError`.
-- **`ApiError`** has `kind: 'http' | 'network'`, `status`, `message` and `fieldErrors`.
-  - For problem responses, `message` is the problem's `detail`, falling back to its `title`.
-  - A network failure gets "Could not reach the server. Check your connection and try again."
-  - Abort errors are passed through untouched.
+- **`ApiError`** has `kind: 'http' | 'network'`, `status` (`null` when no response arrived), `message` and `fieldErrors`.
+  - For problem responses (`application/problem+json` with a problem body), `message` is the problem's `detail`, falling back to its `title`. A body that does not match `ProblemDetails` (string `title` and `detail`, and `errors` whose entries each have a string `field` and `message`) is treated as a plain HTTP error.
+  - Any other error response gets "The server returned an unexpected error (HTTP {status})."
+  - A network failure (fetch's `TypeError`) gets "Could not reach the server. Check your connection and try again."
+  - Abort errors, and any other thrown error, are passed through untouched.
 - **Keys.** Query key `['datasets', 'list']`, holding `Dataset[]`. Mutation keys `['datasets', 'create']` and `['datasets', 'delete']`.
 - **Query defaults:** `staleTime` 30 s; retry only network errors and 5xx, at most twice; `networkMode: 'always'`. The browser's online flag says nothing about a localhost API.
 - **Mutation defaults:** `retry: false` (POST is not idempotent), `networkMode: 'always'`.
@@ -129,7 +130,7 @@ An error boundary at the root shows a fallback with a reload button.
 
 - **Accessible names are part of the contract**: Name, Owner, Description, Add dataset, Saving and curating…, Delete {name}, Delete dataset, Cancel, Try again, Skip to datasets. Tests, E2E specs and `/verify-ui` use these names.
 - **The "20 seconds" in the pending copy mirrors the default** of `CATALOGUE_ANTHROPIC_TIMEOUT_SECONDS`. A change to that default changes this copy in the same commit.
-- **Create writes the server's record into the cache** after `cancelQueries`, and does not refetch. The 201 body is the canonical record.
+- **Create writes the server's record into the cache** after `cancelQueries`, and does not refetch beyond restarting a refresh it cancelled. The 201 body is the canonical record. Create and delete cancel only a list that has data: cancelling a first load reverts it to pending with no fetch left to settle it, so a first load in flight is left to finish.
 - **Optimistic delete filters pending delete mutations out of the list in `select`.** Concurrent deletes cannot bring each other's rows back, and a failure restores its row without manual work. Rejected: snapshot and rollback in `onMutate`/`onError`, where one delete's rollback can restore another's row.
 - **Delete is confirmed** (WCAG 2.2 SC 3.3.4, AA, requires deleting stored data to be confirmed, checked or reversible). Rejected: one-click delete, which fails AA; undo, which would need a restore endpoint or a delayed DELETE that is lost if the tab closes.
 - **Native `<dialog>` with `showModal()`; no component library.** The dialog is the only non-trivial widget besides toasts. `showModal()` provides the top layer, an inert background, Esc and focus return. Rejected: Radix or shadcn, which would re-implement those behaviours in JavaScript.
@@ -154,10 +155,10 @@ An error boundary at the root shows a fallback with a reload button.
 
 ## Fixture/mock semantics
 
-MSW (`frontend/src/test/msw/`) serves the API contract over a typed in-memory store, reset before each test and seeded with the three seed records. Named scenarios:
+MSW (`frontend/src/test/msw/`) serves the API contract over a typed in-memory store, reset before each test and seeded with the three seed records (`store.reset(records)` starts a test from other records). `apiRequests()` lists the requests the mock API received in the current test. A request to the API that no handler matches is answered with a 500 and a console error naming it. Named scenarios, each lasting until the stop function it returns runs or the test ends:
 
-- `listFails`, `createInvalid(fieldErrors)`, `createCurationFailed`, `deleteFails`, `deleteNotFound`;
-- `hold(method)`, which returns a gate the test releases, so pending states can be asserted without timers.
+- `listFails`, `createInvalid(fieldErrors)`, `createCurationFailed`, `deleteFails(id?)`, `deleteNotFound(id?)`;
+- `hold(method)`, which returns a gate the test releases, so pending states can be asserted without timers. Each call holds one request; overlapping requests claim gates in call order, and a held request goes on to whichever handler answers it.
 
 ## Deferred / open
 

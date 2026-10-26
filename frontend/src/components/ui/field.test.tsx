@@ -3,15 +3,10 @@ import { describe, expect, it, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { expectNoA11yViolations } from '@/test/a11y'
+import { focusRing } from '@/test/focus-ring'
 import { TextareaField, TextField } from './field'
 
 const hint = 'What the data contains and how often it updates. Used to generate tags and a summary.'
-const focusRing = {
-  outlineStyle: 'solid',
-  outlineWidth: '2px',
-  outlineOffset: '2px',
-  outlineColor: 'var(--color-focus)',
-}
 
 describe('TextField', () => {
   it('labels the input and passes native attributes through', async () => {

@@ -1,17 +1,10 @@
-/// <reference types="@vitest/browser-playwright" />
 import { Database, Sparkles, TriangleAlert } from 'lucide-react'
-import { describe, expect, it, onTestFinished } from 'vitest'
-import { cdp, page } from 'vitest/browser'
+import { describe, expect, it } from 'vitest'
+import { page } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { expectNoA11yViolations } from '@/test/a11y'
+import { emulateMedia } from '@/test/emulate-media'
 import { Badge } from './badge'
-
-async function emulateMedia(features: { name: string; value: string }[]) {
-  await cdp().send('Emulation.setEmulatedMedia', { features })
-  onTestFinished(async () => {
-    await cdp().send('Emulation.setEmulatedMedia', { features: [] })
-  })
-}
 
 describe('Badge', () => {
   it('renders every tone with its text and a hidden icon, with no axe violations', async () => {

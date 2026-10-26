@@ -48,6 +48,17 @@
     color-scheme: light;
   }
 
+  html {
+    /* The collapsed toast stack: the front toast as sonner measured it (copied here by
+       src/app/providers.tsx), sonner's 14px gap for each of the two toasts peeking out behind
+       it, its 24px offset (16px on narrow screens) and room for the focus ring. Focus scrolls an
+       element clear of it (WCAG 2.4.11), and the page shell pads its bottom by as much, so the
+       last controls have room to scroll that far. The 10rem floor already covers a front toast
+       up to 100px tall, so the padding holds still as most toasts come and go. */
+    --toast-clearance: max(10rem, var(--front-toast-height, 0px) + 2 * 14px + 24px + 0.5rem);
+    scroll-padding-bottom: var(--toast-clearance);
+  }
+
   body {
     @apply bg-canvas font-sans text-fg antialiased;
   }
@@ -55,4 +66,55 @@
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-focus;
   }
+}
+
+/* sonner injects its stylesheet unlayered, which beats anything in a layer, and after this one, so
+   these overrides are unlayered too and one element selector more specific. Its own colours
+   measure 3.07–4.36:1, below AA; these are the tokens, laid out like the Alert primitive's. */
+html [data-sonner-toaster][data-sonner-theme='light'] {
+  --normal-bg: var(--color-surface);
+  --normal-border: var(--color-border);
+  --normal-text: var(--color-fg);
+  --success-bg: var(--color-success-subtle);
+  --success-border: --alpha(var(--color-success-fg) / 30%);
+  --success-text: var(--color-success-fg);
+  --info-bg: var(--color-surface-muted);
+  --info-border: --alpha(var(--color-fg-muted) / 30%);
+  --info-text: var(--color-fg-muted);
+  --warning-bg: var(--color-warning-subtle);
+  --warning-border: --alpha(var(--color-warning-fg) / 30%);
+  --warning-text: var(--color-warning-fg);
+  --error-bg: var(--color-danger-subtle);
+  --error-border: --alpha(var(--color-danger) / 30%);
+  --error-text: var(--color-danger);
+  --border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+}
+
+html [data-sonner-toast][data-styled='true'] {
+  /* rem rather than sonner's 13px, so toast text follows the browser's font size (WCAG 1.4.4). */
+  font-size: var(--text-sm);
+  box-shadow: var(--shadow-lg);
+}
+
+html [data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-description] {
+  color: var(--color-fg);
+}
+
+html [data-sonner-toast][data-styled='true'] [data-close-button] {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+html [data-sonner-toast][data-styled='true']:hover [data-close-button]:hover {
+  background: var(--color-surface-muted);
+  border-color: var(--color-border-input);
+}
+
+/* sonner sets outline: none on toasts and their list, which would remove the global focus ring.
+   The list that Alt+T focuses has no height of its own, so its toasts carry the ring for it. */
+html [data-sonner-toast]:focus-visible,
+html [data-sonner-toast] [data-close-button]:focus-visible,
+html [data-sonner-toaster]:focus-visible [data-sonner-toast] {
+  @apply outline-2 outline-offset-2 outline-focus;
 }

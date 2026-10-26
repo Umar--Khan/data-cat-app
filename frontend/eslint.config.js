@@ -1,5 +1,6 @@
 import js from '@eslint/js'
 import eslintReact from '@eslint-react/eslint-plugin'
+import pluginQuery from '@tanstack/eslint-plugin-query'
 import vitest from '@vitest/eslint-plugin'
 import prettier from 'eslint-config-prettier/flat'
 import jsxA11y from 'eslint-plugin-jsx-a11y'
@@ -29,6 +30,7 @@ export default defineConfig(
       reactRefresh.configs.vite,
       jsxA11y.flatConfigs.strict,
       eslintReact.configs['recommended-type-checked'],
+      pluginQuery.configs['flat/recommended'],
     ],
     languageOptions: { globals: globals.browser },
     rules: {

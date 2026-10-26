@@ -53,7 +53,8 @@ src/test/                test setup, axe helper, MSW
 - `render` from `vitest-browser-react`; `page` and `userEvent` from `vitest/browser`. Select by role and accessible name.
 - Always `await expect.element(...)`. It retries until the timeout, and Vitest 5 fails a test that leaves one unawaited.
 - Call `expectNoA11yViolations()` from `src/test/a11y.ts` (axe, WCAG 2.2 A and AA) in every state a test renders.
-- MSW is v3: the unhandled-request option is `onUnhandledFrame`. `.env.test` points the API at `http://api.test`, which never resolves, so an unhandled request cannot reach a running server.
+- MSW is v3: the unhandled-request option is `onUnhandledFrame`. `.env.test` points the API at `http://api.test`, which never resolves, and an API request no handler matches is answered at once with a 500 and a console error naming it, so it can never reach a running server.
+- Render anything that uses the query client or toasts with `renderWithProviders` or `renderHookWithProviders` from `src/test/render.tsx`: a fresh client per test, the app's retry policy without the backoff, and a Toaster.
 - Spy on module exports with `vi.mock(path, { spy: true })`. `vi.spyOn` cannot patch an ESM namespace.
 - React Compiler is off under test, so coverage measures the code as written. Playwright runs the compiled production build.
 - Coverage is gated at 95 % for lines, branches, functions and statements. Every file under `src/` counts, imported by a test or not, except the exclusions in `vite.config.ts`.
