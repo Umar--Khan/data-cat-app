@@ -81,6 +81,7 @@ Three jobs run in parallel on pushes to `main` and on pull requests, each with a
 - **Execution.** One worker, not fully parallel. `reducedMotion: 'reduce'`. One retry in CI. Traces and screenshots are kept on failure.
 - **Isolation without a test-only endpoint.**
   - An `auto` fixture records the id of every `POST /datasets` 201 response (matched by path) and deletes those records through the public API in teardown, treating 404 as already cleaned.
+  - A test that needs a record of its own before the page loads creates it through the API with the `createDataset` fixture, which registers it for the same cleanup.
   - Responses faked with `route.fulfill` use ids that cannot exist on the server (`fulfilled-1`).
   - Delete tests delete the record they created, never a seed. The literal `DELETE /datasets/1` is covered by pytest and `verify_api.py`.
 
@@ -93,7 +94,7 @@ Three jobs run in parallel on pushes to `main` and on pull requests, each with a
 | `checklist.spec.ts`      | The brief's frontend checklist, one test per item: three seeds on load; the test payload adds a fourth entry with tags and summary (the POST is held by a route gate to assert the pending state); delete without a reload (a `window` sentinel survives, no navigation); an empty name or description shows inline errors, focuses the field and sends no POST |
 | `failure-states.spec.ts` | API unreachable on load, then "Try again" recovers (`route.abort`); a POST answered with a curation-failed record shows the badge, the detail and the warning toast (`route.fulfill`); a delete returning 500 restores the row and shows an error toast                                                                                                         |
 | `keyboard.spec.ts`       | Add and delete using only Tab, Shift+Tab, Enter, Space and Esc. Focus never lands on `body`, and focus after submit and after delete follows the spec. Tabs until the target's name matches, with a cap, rather than counting tab stops.                                                                                                                        |
-| `a11y.spec.ts`           | `@axe-core/playwright` (WCAG 2.2 A/AA plus best practice) on load, on the invalid form, after create once the toast has settled, on a failed-curation row, and with the dialog open. Plus a 320 × 720 viewport: no horizontal overflow, and the focused element visible.                                                                                        |
+| `a11y.spec.ts`           | `@axe-core/playwright` (WCAG 2.2 A/AA plus best practice) on load, on the invalid form, after create once the toast has settled, on a failed-curation row, and with the dialog open. Plus a 320 × 720 viewport: no horizontal overflow, and the last control, reached with Tab while a toast shows, fully in view and not covered by the toast stack.           |
 
 - **Axe and toasts.** Before scanning, wait for `[data-sonner-toast][data-mounted="true"]` at opacity 1. axe skips contrast checks on transparent elements, so a scan during the fade would pass without checking anything.
 

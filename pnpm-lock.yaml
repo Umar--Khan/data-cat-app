@@ -63,6 +63,9 @@ importers:
         specifier: 4.6.7
         version: 4.6.7
     devDependencies:
+      '@axe-core/playwright':
+        specifier: 4.14.0
+        version: 4.14.0(playwright-core@1.64.1)
       '@babel/core':
         specifier: 7.29.7
         version: 7.29.7(supports-color@10.2.2)
@@ -75,6 +78,9 @@ importers:
       '@fontsource-variable/inter':
         specifier: 5.3.0
         version: 5.3.0
+      '@playwright/test':
+        specifier: 1.64.1
+        version: 1.64.1
       '@rolldown/plugin-babel':
         specifier: 0.2.4
         version: 0.2.4(@babel/core@7.29.7(supports-color@10.2.2))(rolldown@1.2.15)(vite@8.3.5(@types/node@24.19.2)(jiti@2.7.0)(yaml@2.9.1))
@@ -126,6 +132,9 @@ importers:
       eslint-plugin-jsx-a11y:
         specifier: 6.10.2
         version: 6.10.2(eslint@10.13.0(jiti@2.7.0)(supports-color@10.2.2))
+      eslint-plugin-playwright:
+        specifier: 2.12.1
+        version: 2.12.1(eslint@10.13.0(jiti@2.7.0)(supports-color@10.2.2))
       eslint-plugin-react-hooks:
         specifier: 7.1.1
         version: 7.1.1(eslint@10.13.0(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)
@@ -164,6 +173,12 @@ importers:
         version: 2.3.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5)
 
 packages:
+
+  '@axe-core/playwright@4.14.0':
+    resolution: {integrity: sha512-SGUhG5PIHd2eMdpgBF2PyQLOhX+qyDR2PT4cmoS4Qk2ak+jX/rrSvst9l0PGv5WTHolKpUMvVmoHpr4cZgf1RQ==}
+    engines: {node: '>=22.12.0'}
+    peerDependencies:
+      playwright-core: '>= 1.0.0'
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -640,6 +655,11 @@ packages:
 
   '@oxc-project/types@0.155.0':
     resolution: {integrity: sha512-SeE8JPwW1xs1tHeNycjUtUBdhorRa8o4jlvjwk49R7/Z291i+4DQa7JJIgOm/TaYQZx+QrPQbVJ/9c8dMIZN8Q==}
+
+  '@playwright/test@1.64.1':
+    resolution: {integrity: sha512-IaYGml/nSOiZWROfPtuIL7neuu9qDOZ3TNvNljUIrhDMxiGTgPjzj/g9p9RxpS2tSepPDRY+UwAaEeiKtUvIAg==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
@@ -1435,6 +1455,12 @@ packages:
     engines: {node: '>=4.0'}
     peerDependencies:
       eslint: ^3 || ^4 || ^5 || ^6 || ^7 || ^8 || ^9
+
+  eslint-plugin-playwright@2.12.1:
+    resolution: {integrity: sha512-JhavNuYBIq7SE/Zg9Esf9RGHkXoDbzrEKS383cowzMyvZ4JMbmdNCN6CoW+RU1Cjzwcoea1tou0je58uXmT/9A==}
+    engines: {node: '>=16.9.0'}
+    peerDependencies:
+      eslint: '>=8.40.0'
 
   eslint-plugin-react-dom@5.28.8:
     resolution: {integrity: sha512-zQCHJi07Zd5856QKUUHUjkcBEO/hqBodckhoMM29btrbfx4CZx05ZtuYzmQ23qwajdSxjdevOvutxbLZMnDG6A==}
@@ -2906,6 +2932,11 @@ packages:
 
 snapshots:
 
+  '@axe-core/playwright@4.14.0(playwright-core@1.64.1)':
+    dependencies:
+      axe-core: 4.14.0
+      playwright-core: 1.64.1
+
   '@babel/code-frame@7.29.7':
     dependencies:
       '@babel/helper-validator-identifier': 7.29.7
@@ -3404,6 +3435,10 @@ snapshots:
   '@open-draft/until@3.0.1': {}
 
   '@oxc-project/types@0.155.0': {}
+
+  '@playwright/test@1.64.1':
+    dependencies:
+      playwright: 1.64.1
 
   '@polka/url@1.0.0-next.29': {}
 
@@ -4255,6 +4290,11 @@ snapshots:
       object.fromentries: 2.0.8
       safe-regex-test: 1.1.0
       string.prototype.includes: 2.0.1
+
+  eslint-plugin-playwright@2.12.1(eslint@10.13.0(jiti@2.7.0)(supports-color@10.2.2)):
+    dependencies:
+      eslint: 10.13.0(jiti@2.7.0)(supports-color@10.2.2)
+      globals: 17.13.0
 
   eslint-plugin-react-dom@5.28.8(eslint@10.13.0(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3):
     dependencies:

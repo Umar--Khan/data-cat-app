@@ -4,6 +4,7 @@ import pluginQuery from '@tanstack/eslint-plugin-query'
 import vitest from '@vitest/eslint-plugin'
 import prettier from 'eslint-config-prettier/flat'
 import jsxA11y from 'eslint-plugin-jsx-a11y'
+import playwright from 'eslint-plugin-playwright'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
@@ -55,6 +56,13 @@ export default defineConfig(
         'error',
         { assertFunctionNames: ['expect', 'expectNoA11yViolations'] },
       ],
+    },
+  },
+  {
+    files: ['e2e/**/*.ts'],
+    extends: [playwright.configs['flat/recommended']],
+    rules: {
+      'playwright/expect-expect': ['error', { assertFunctionNames: ['expectNoAxeViolations'] }],
     },
   },
   prettier,

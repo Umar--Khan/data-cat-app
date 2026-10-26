@@ -19,6 +19,8 @@ export default defineConfig(({ mode }) => ({
   test: {
     // Vitest's own server inherits server.strictPort, which stops a second run from starting while one is open.
     api: { strictPort: false },
+    // Vitest's default pattern would also collect the Playwright specs in e2e/.
+    include: ['src/**/*.test.{ts,tsx}'],
     setupFiles: ['src/test/setup.ts'],
     browser: {
       enabled: true,

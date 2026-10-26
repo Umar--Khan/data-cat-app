@@ -20,6 +20,7 @@ src/components/ui/       feature-agnostic primitives
 src/features/datasets/   api/, hooks/, components/
 src/lib/                 API client and ApiError, form helpers, env
 src/test/                test setup, axe helper, MSW
+e2e/                     Playwright specs; fixtures.ts holds the cleanup fixture, route gates, axe and toast helpers
 ```
 
 - Dependencies point one way: `features` may import `components/ui` and `lib`, and neither of those imports `features`.
@@ -71,6 +72,7 @@ src/test/                test setup, axe helper, MSW
 | Dev server on :5173                  | `pnpm dev`                                  |
 | Production build, preview on :4173   | `pnpm build && pnpm preview`                |
 | E2E against the production build     | `pnpm test:e2e`                             |
+| One E2E spec (file name filter)      | `pnpm exec playwright test keyboard`        |
 | Regenerate API types (from the root) | `pnpm gen:api`                              |
 
 `pnpm dev` at the repository root starts the API and this app together. `pnpm check:web` there runs ESLint, Prettier, `tsc -b` and the tests with coverage.
