@@ -72,7 +72,7 @@ The text lives in `prompt.py` as one literal so it reads as prose in review. It 
 Tags, in order:
 
 1. Strip whitespace and surrounding `#`, `"` and `'`. Collapse internal whitespace to `-`.
-2. Map known acronyms to canonical case (PII, HR, FX, SKU, KYC, AML, CRM, ESG, P&L). Keep other all-caps tokens of 2–5 characters as they are. Lowercase everything else.
+2. Case each hyphen-separated token: map known acronyms to canonical case (PII, HR, FX, SKU, KYC, AML, CRM, ESG, P&L), keep other all-caps tokens of 2–5 characters as they are, and lowercase everything else. "Customer PII" becomes `customer-PII`.
 3. Drop tags that are empty, longer than 32 characters, or generic (`data`, `dataset`, `datasets`, `table`, `misc`). Also drop any tag that is neither a canonical acronym nor a match for `^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$`.
 4. De-duplicate case-insensitively, keeping the first occurrence. Cap at 6.
 
@@ -80,10 +80,10 @@ Summary, in order:
 
 1. Collapse whitespace and strip wrapping quotes.
 2. Keep the first sentence.
-3. If it is over 240 characters, cut at a word boundary and append `…`. Otherwise make sure it ends with punctuation.
+3. If it is over 240 characters, cut at a word boundary and append `…`, keeping the whole summary within 240. Otherwise make sure it ends with `.`, `!`, `?` or `…` (a closing quote or bracket may follow); a trailing comma, semicolon, colon or dash is replaced by a full stop.
 4. Capitalise the first character.
 
-A result counts as `completed` only with at least one tag and a non-empty summary.
+A sentence ends at `.`, `!` or `?` followed by whitespace, except after an abbreviation such as "e.g.", "U.S." or "approx.". A result counts as `completed` only with at least one tag and a summary containing a letter or digit.
 
 ### Failures
 
@@ -117,7 +117,7 @@ class CurationProvider(Protocol):
 ## Invariants & decided points
 
 - **Curation never blocks saving.** `POST /datasets` returns 201 whatever the curation outcome.
-- **`CurationService.curate` never raises.** It holds the only broad `except` in request handling. Third-party exception lists are not exhaustive: anthropic 2.x raises `CredentialsError` outside `APIError`. `asyncio.CancelledError` still propagates, and unexpected failures are logged with a traceback.
+- **`CurationService.curate` never raises.** It holds the only broad `except` that lets a request carry on; the API's unhandled-error middleware also catches everything, but only to render the 500 problem. Third-party exception lists are not exhaustive: anthropic 2.x raises `CredentialsError` outside `APIError`. `asyncio.CancelledError` still propagates, and unexpected failures are logged with a traceback.
 - **No silent fallback** from Claude to the keyword mock.
 - **Check `stop_reason` only after a successful parse.** `parse()` raises `ValidationError` before `stop_reason` is visible, so catching that error is mandatory.
 - **The failure path is forced through real configuration** (the offline configuration above). Rejected: a fake failing provider, or a test-only flag.
@@ -135,14 +135,14 @@ The keyword provider models the same facets as the prompt, so both providers pro
 - **Scoring.** A rule scores the sum of the field weights where any of its patterns appears: name 3, owner 2, description 1. Presence counts, not frequency.
 - **Selection.** Facet caps are domain 2, subject 2, sensitivity 1, cadence 1. Output is in facet order. Within a facet, tags are ordered by score, with ties in taxonomy order.
 - **PII.** Either:
-  - (a) a direct identifier appears: email, phone, address, date of birth, government or tax ID, passport, licence, or a customer, client, employee, patient or user ID or number; or
-  - (b) a person noun appears together with an unqualified `name` field. "Employees with name" is PII; "product name" and "counterparty" are not.
+  - (a) a direct identifier appears: email, phone, address (including an IP address), date of birth, government or tax ID, passport, driver's licence, or a customer, client, employee, patient or user ID or number; or the dataset says outright that it holds PII or personal data; or
+  - (b) a person noun appears in the name or description together with an unqualified `name` field, a person-qualified one ("borrower name") or a first name, last name or surname. "Employees with name" is PII; "product name" and "counterparty" are not. The owner is not evidence: it says who maintains the data, not whom it describes.
 - **Cadence** is read from the whole description, so "Updated weekly." in a second sentence counts.
 - **Fallback.** When no domain or subject tag is selected, take up to three distinctive words from the name (at least 3 letters, not stopwords or generic tags, acronyms kept), followed by any sensitivity or cadence tag. If that is still empty, return `uncategorised`. The keyword provider therefore never ends in `invalid_output`.
 - **Summary.** Work on the description's first sentence.
   1. **Fields.** Take the text after the first `including`, `with`, `covering` or `containing`. Split it on commas, "and" and "or". Drop identifier fields (… ID, identifier, key, UUID). Keep the first three verbatim, joined as `a`, `a and b`, or `a, b, and c`.
-  2. **Template.** If the sentence matches `[cadence word] <artifact> of <object> [<marker> <fields>]`, where the artifact is export, extract, feed, snapshot, list, log, report, stream, register or directory, emit `{Article} {cadence }{artifact} of {object}[ covering {fields}].` The object has any trailing punctuation removed. Otherwise emit `{Article} {cadence }dataset of {name}[ covering {fields}].`, with the name lowercased except for acronyms.
-  3. **Cadence and article.** `{cadence}` is the selected cadence tag, lowercased; it is omitted when there is none. `{Article}` is "An" before export, extract, annual and hourly, and "A" otherwise. There is no pluralisation and no other grammar.
+  2. **Template.** If the sentence matches `[a|an|the] [cadence word] <artifact> of <object> [<marker> <fields>]`, where the artifact is singular export, extract, feed, snapshot, list, log, report, stream, register or directory, and the cadence word may also be nightly, end-of-day, EOD, month-end, quarter-end or year-end, emit `{Article} {cadence }{artifact} of {object}[ covering {fields}].` The object has any trailing punctuation removed. Otherwise emit `{Article} {cadence }dataset of {name}[ covering {fields}].`, with the name's trailing punctuation removed and the name lowercased except for acronyms and mixed-case words such as "IoT".
+  3. **Cadence and article.** `{cadence}` is the selected cadence tag, lowercased; it is omitted when there is none, or when the object or name already states that cadence ("An export of daily balances", not "A daily export of daily balances"). `{Article}` is "An" before export, extract, annual and hourly, and "A" otherwise. There is no pluralisation and no other grammar.
 - **Golden cases** (exact, in tests):
 
 | Input                                                    | Tags                                   | Summary                                                                                                     |
