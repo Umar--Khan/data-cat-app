@@ -109,11 +109,11 @@ Every badge carries text. Colour and icon only reinforce it.
 - The close button is enlarged to 24×24 px.
 - Success and info toasts last 5 s. Warning and error toasts last 10 s and have a close button.
 - Toasts pause on hover and focus, and Alt+T reaches the region. sonner pauses only while its stack is expanded, so focus inside the stack expands it; while the list Alt+T focuses holds focus, its toasts carry the focus ring, since the list has no height of its own.
-- `html { scroll-padding-bottom }` keeps a focused element from scrolling underneath the toast stack, which matters on narrow screens where toasts are full width (WCAG 2.4.11). It is sized from the front toast's height as sonner measures it, so a long dataset name or enlarged text cannot outgrow it, and it never drops below 10rem, so the page's bottom padding holds still for short toasts. Toast text is never truncated.
+- `html { scroll-padding-bottom }` keeps a focused element from scrolling underneath the toast stack, which matters on narrow screens where toasts are full width (WCAG 2.4.11). It is sized from the front toast's height as sonner measures it, so a long dataset name or enlarged text cannot outgrow it, and it never drops below 10rem, so the page's bottom padding holds still for short toasts. Toast text is never truncated. The page shell pads its bottom by the same `--toast-clearance`, because scroll padding cannot lift the last row's controls past the end of the page.
 
 ### Render failure
 
-An error boundary at the root shows a fallback with a reload button.
+An error boundary at the root, outside the providers, replaces the page with a `<main>` holding the focused `h1` "Something went wrong", the text "The page hit an unexpected error. Reload it to carry on; saved datasets are not affected." and a "Reload page" button.
 
 ## Data contract
 
@@ -129,7 +129,7 @@ An error boundary at the root shows a fallback with a reload button.
 
 ## Invariants & decided points
 
-- **Accessible names are part of the contract**: Name, Owner, Description, Add dataset, Saving and curating…, Delete {name}, Delete dataset, Cancel, Try again, Skip to datasets. Tests, E2E specs and `/verify-ui` use these names.
+- **Accessible names are part of the contract**: Name, Owner, Description, Add dataset, Saving and curating…, Delete {name}, Delete dataset, Cancel, Try again, Skip to datasets, Reload page. Tests, E2E specs and `/verify-ui` use these names.
 - **The "20 seconds" in the pending copy mirrors the default** of `CATALOGUE_ANTHROPIC_TIMEOUT_SECONDS`. A change to that default changes this copy in the same commit.
 - **Create writes the server's record into the cache** after `cancelQueries`, and does not refetch beyond restarting a refresh it cancelled. The 201 body is the canonical record. Create and delete cancel only a list that has data: cancelling a first load reverts it to pending with no fetch left to settle it, so a first load in flight is left to finish.
 - **Optimistic delete filters pending delete mutations out of the list in `select`.** Concurrent deletes cannot bring each other's rows back, and a failure restores its row without manual work. Rejected: snapshot and rollback in `onMutate`/`onError`, where one delete's rollback can restore another's row.
