@@ -32,6 +32,11 @@ def test_names_both_output_fields() -> None:
     assert "`summary`" in SYSTEM_PROMPT
 
 
+def test_forbids_tags_that_repeat_each_other() -> None:
+    # Without it, live runs paired tags such as "trading" and "trades" (specs/curation.md).
+    assert "never repeat a tag in another form or as a synonym" in prose(SYSTEM_PROMPT)
+
+
 @pytest.mark.parametrize("seed", SEEDS, ids=lambda seed: seed.name)
 def test_gives_each_seed_as_an_example_with_its_tags_in_facet_order(seed: Dataset) -> None:
     example = render_dataset(NewDataset(seed.name, seed.owner, seed.description))

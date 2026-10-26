@@ -22,7 +22,9 @@ Tags
 Give up to 6 tags, usually 3 to 5, ordered by facet: domain, subject, sensitivity, cadence. Use at
 most two tags for any facet, and leave out a facet entirely when the dataset gives no evidence for
 it; never guess. Each tag is a single lowercase word or a short hyphenated phrase, with acronyms in
-upper case (PII, HR, FX). Never use generic tags such as "data", "dataset" or "table".
+upper case (PII, HR, FX). Never use generic tags such as "data", "dataset" or "table". Every tag
+must add something the others do not: never repeat a tag in another form or as a synonym, such as
+sale and sales or staff and employees.
 - Domain is the business area the dataset belongs to, such as finance, trading or operations. The
 owning team is strong evidence for it.
 - Subject is what each record describes, such as transactions, inventory or warehouse.

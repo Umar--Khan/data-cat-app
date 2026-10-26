@@ -44,7 +44,7 @@ Details:
 - **Output:** `output_format=CurationDraft`, sent on the wire as `output_config.format` next to `effort`.
   - `CurationDraft` carries types only. Its docstring and field descriptions are written for Claude, because the SDK sends them as the schema's descriptions.
   - Limits live in those descriptions and in the normaliser. The SDK moves `maxItems` and `maxLength` out of the request schema into the field's description (as `{maxItems: 6}`) but still enforces them client-side, so a single surplus tag would fail the whole curation.
-- **Caching:** the system prompt is one text block marked `cache_control: {"type": "ephemeral"}`. Below the model's minimum cacheable prefix, the API skips caching silently.
+- **Caching:** the system prompt is one text block marked `cache_control: {"type": "ephemeral"}`. Below the model's minimum cacheable prefix, the API skips caching silently. The prompt is above it: the first live call, on 2026-10-26, wrote 1,558 tokens to the cache.
 - **Refusal fallback:** `betas=["server-side-fallback-2026-07-01"]` and `fallbacks="default"`. If a safety classifier refuses, the API re-runs the request on the recommended fallback model within the same call. These are sent only when the configured model is in `FALLBACK_MODELS`, a constant in `anthropic_provider.py` (Opus 5.5, Opus 5, Fable 5.1, Sonnet 5.5), so changing the model can never turn every call into a 400.
 - **Deadline:** `Timeout(budget, connect=5)` on the client, `max_retries=1`, and the whole call wrapped in `asyncio.timeout(budget)`, where the budget is `CATALOGUE_ANTHROPIC_TIMEOUT_SECONDS` (20 s). The outer timeout is the real deadline, because the SDK honours any `retry-after` without an upper bound.
 - **Logging:** on success, the provider logs at INFO the model that served the request, token usage (including cache reads and writes), the request id, and whether a fallback ran. A refusal, a `max_tokens` stop or a missing parsed output has no SDK exception behind it, so for those the provider logs at WARNING the stop reason, the refusal category, the serving model, whether a fallback ran and the request id. When `parse()` raises `ValidationError`, it logs at WARNING the raw `stop_reason` and the request id from the raw response, since a reply cut off at `max_tokens` and a refusal partway through fail to parse alike.
@@ -55,7 +55,7 @@ The text lives in `prompt.py` as one literal so it reads as prose in review. It 
 
 - **Role.** It curates entries in a company data catalogue so people browsing can tell at a glance what a dataset covers and how carefully to handle it.
 - **Output.** Exactly two fields: `tags`, an array of tag strings in facet order, and `summary`, a single sentence. A prompt test asserts that both names appear.
-- **Tags.** Up to 6, usually 3–5, ordered by facet: domain, subject, sensitivity, cadence. At most two per facet. Leave out any facet the input gives no evidence for; never guess. Use single lowercase words or short hyphenated phrases, with acronyms in upper case (PII, HR, FX). Never generic tags such as "data".
+- **Tags.** Up to 6, usually 3–5, ordered by facet: domain, subject, sensitivity, cadence. At most two per facet. Leave out any facet the input gives no evidence for; never guess. Use single lowercase words or short hyphenated phrases, with acronyms in upper case (PII, HR, FX). Never generic tags such as "data". Every tag adds something the others do not: none repeats another in a different form or as a synonym.
 - **Facet guidance.**
   - Domain is the business area. The owning team is strong evidence.
   - Subject is what each record describes (transactions, inventory, warehouse).
@@ -118,6 +118,8 @@ class CurationProvider(Protocol):
 ## Invariants & decided points
 
 - **Curation never blocks saving.** `POST /datasets` returns 201 whatever the curation outcome.
+- **No tag repeats another.** Measured live on 2026-10-26 over the brief's test payload and five new datasets, one call each: without the rule, three of six tag sets paired a tag with another form or a synonym of it (trading and trades, payments and card-payments, FX and exchange-rates). With it, only FX and exchange-rates remained, which name a market and its prices. Nothing else changed.
+- **Latency at low effort** was 2.0–4.0 s per curation across 13 live calls on 2026-10-26, well inside the 20 s budget.
 - **`CurationService.curate` never raises.** It holds the only broad `except` that lets a request carry on; the API's unhandled-error middleware also catches everything, but only to render the 500 problem. Third-party exception lists are not exhaustive: anthropic 2.x raises `CredentialsError` outside `APIError`. `asyncio.CancelledError` still propagates, and unexpected failures are logged with a traceback.
 - **No silent fallback** from Claude to the keyword mock.
 - **Check `stop_reason` only after a successful parse.** `parse()` raises `ValidationError` before `stop_reason` is visible, so catching that error is mandatory.
@@ -163,6 +165,4 @@ The provider runs the real `AsyncAnthropic` from `build_client()` over `httpx2.M
 
 ## Deferred / open
 
-- Latency at low effort has not been measured. The key configured during development is not scoped to a workspace, and live calls wait on an `ANTHROPIC_WORKSPACE_ID`. `/verify-api` measures latency once a call goes through.
-- The system prompt's token count is an estimate (about 800–1,000 tokens), so whether caching takes effect is unconfirmed.
 - No re-curation, streaming, batch processing or per-request model choice.
