@@ -20,7 +20,7 @@ The single page of the app: a form to register a dataset and, below it, the cata
 
 ### Page
 
-- Skip link "Skip to datasets", then a `<header>` with the `h1` "Data Catalogue" and a one-line description.
+- Skip link "Skip to datasets", visually hidden until focused. It moves focus to the "Datasets" heading, which keeps a scroll margin so its focus ring stays in view, and the next Tab reaches the first row's Delete button. Then a `<header>` with the `h1` "Data Catalogue" and a one-line description.
 - `<main>` holds two `<section aria-labelledby>`: "Add a dataset" (`h2`) and "Datasets" (`h2`, focusable with `tabIndex={-1}`).
 - `<title>Data Catalogue</title>`, `<html lang="en">`.
 

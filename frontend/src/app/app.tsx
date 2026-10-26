@@ -27,11 +27,12 @@ export function App() {
             <DatasetForm />
           </section>
           <section aria-labelledby="datasets-heading" className="flex flex-col gap-3">
+            {/* The skip link scrolls its target to the top edge; the margin keeps the focus ring in view. */}
             <h2
               ref={datasetsHeadingRef}
               id="datasets-heading"
               tabIndex={-1}
-              className="text-lg font-semibold"
+              className="scroll-mt-4 text-lg font-semibold"
             >
               Datasets
             </h2>

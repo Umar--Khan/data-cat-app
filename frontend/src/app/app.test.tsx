@@ -7,6 +7,7 @@ import { networkErrorMessage } from '@/lib/api/api-error'
 import type { Dataset, DatasetCreate } from '@/lib/api/schema.gen'
 import { expectNoA11yViolations } from '@/test/a11y'
 import { emulateMedia } from '@/test/emulate-media'
+import { focusRing } from '@/test/focus-ring'
 import { hold } from '@/test/msw/scenarios'
 import { seedDatasets, store } from '@/test/msw/store'
 import { apiRequests } from '@/test/msw/worker'
@@ -246,6 +247,23 @@ describe('App', () => {
     await expect
       .element(screen.list.getByRole('button', { name: `Delete ${customerTransactions.name}` }))
       .toHaveFocus()
+  })
+
+  it('keeps the Datasets heading focus ring in view when the skip link scrolls to it', async () => {
+    // Short enough that following the skip link has to scroll the page.
+    await page.viewport(414, 400)
+    onTestFinished(async () => {
+      await page.viewport(414, 896)
+    })
+    const screen = await renderLoaded()
+
+    await userEvent.tab()
+    await userEvent.keyboard('{Enter}')
+    await expect.element(screen.datasetsHeading).toHaveFocus()
+    const ring = parseFloat(focusRing.outlineOffset) + parseFloat(focusRing.outlineWidth)
+    expect(screen.datasetsHeading.element().getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      ring,
+    )
   })
 
   it('moves focus to its Datasets heading when the last dataset is deleted', async () => {
