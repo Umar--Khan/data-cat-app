@@ -133,6 +133,9 @@ async def test_a_typed_failure_without_a_cause_logs_only_the_failure(
         pytest.param(CurationDraft(tags=(), summary="A feed."), id="empty-tags"),
         pytest.param(CurationDraft(tags=("finance",), summary="  "), id="blank-summary"),
         pytest.param(CurationDraft(tags=("finance",), summary='"..."'), id="punctuation-summary"),
+        pytest.param(
+            CurationDraft(tags=("finance",), summary="\u200b\u202e\x07"), id="invisible-summary"
+        ),
     ],
 )
 async def test_nothing_usable_after_normalising_is_invalid_output(

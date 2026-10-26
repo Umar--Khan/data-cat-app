@@ -109,9 +109,14 @@ def test_rule_4_caps_at_six_after_dropping() -> None:
         pytest.param("\u2018A daily feed.\u2019", "A daily feed.", id="curly-single-quotes"),
         pytest.param("\"' A daily feed. '\"", "A daily feed.", id="nested-quotes"),
         pytest.param('"A daily" feed.', '"A daily" feed.', id="quotes-that-do-not-wrap"),
+        pytest.param("A dai\u200bly fe\u00aded.", "A daily feed.", id="format-characters"),
+        pytest.param("\u202eA daily feed.\u202c", "A daily feed.", id="bidi-controls"),
+        pytest.param("A \x1b[31mdaily\x07 feed.", "A [31mdaily feed.", id="control-characters"),
+        pytest.param("A daily\x85feed.\x1f", "A daily feed.", id="whitespace-controls"),
+        pytest.param('\ufeff"A daily feed."', "A daily feed.", id="before-wrapping-quotes"),
     ],
 )
-def test_summary_rule_1_collapses_whitespace_and_strips_wrapping_quotes(
+def test_summary_rule_1_drops_hidden_characters_collapses_whitespace_and_strips_quotes(
     raw: str, expected: str
 ) -> None:
     assert normalise_summary(raw) == expected

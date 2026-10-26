@@ -128,18 +128,21 @@
         ],
         "properties": {
           "description": {
+            "description": "At least one letter, digit, punctuation mark or symbol, and no control or invisible format characters. Tabs and line breaks are allowed.",
             "maxLength": 2000,
             "minLength": 1,
             "title": "Description",
             "type": "string"
           },
           "name": {
+            "description": "At least one letter, digit, punctuation mark or symbol, and no control or invisible format characters.",
             "maxLength": 120,
             "minLength": 1,
             "title": "Name",
             "type": "string"
           },
           "owner": {
+            "description": "At least one letter, digit, punctuation mark or symbol, and no control or invisible format characters.",
             "maxLength": 120,
             "minLength": 1,
             "title": "Owner",

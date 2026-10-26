@@ -832,7 +832,11 @@ VOCABULARY = [
 
 
 def bounded_text(max_size: int) -> st.SearchStrategy[str]:
-    """Text the API would accept for a field: trimmed, non-blank, at most `max_size` long."""
+    """Every text the API accepts for a field, and more: trimmed, non-empty, at most `max_size`.
+
+    It also draws control and invisible characters the API rejects, so the provider is shown to
+    cope with them too.
+    """
     vocabulary = st.lists(st.sampled_from(VOCABULARY), min_size=1, max_size=60).map(" ".join)
     return (
         st.one_of(st.text(min_size=1, max_size=max_size), vocabulary)

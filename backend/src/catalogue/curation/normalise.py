@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from collections.abc import Iterable, Mapping
 from typing import Final
 
@@ -38,6 +39,9 @@ _TERMINAL_PUNCTUATION = re.compile(rf"[.!?…]{_CLOSERS}$")
 # Stripped before the closing full stop or ellipsis, so a sentence never ends in ",." or ":…".
 # The last two are an en dash and an em dash.
 _DANGLING_PUNCTUATION = " ,;:-\u2013\u2014"
+# Control and format characters. A summary is shown to people, and these either drive a terminal
+# or show nothing at all while changing how the text around them reads.
+_HIDDEN_CATEGORIES: Final = frozenset({"Cc", "Cf"})
 
 
 def canonical_case(token: str) -> str:
@@ -95,7 +99,14 @@ def normalise_summary(raw: str) -> str:
     Returns an empty string when no letter or digit is left, so punctuation alone never passes
     for a summary.
     """
-    summary = " ".join(raw.split())
+    # Whitespace controls such as tabs and newlines survive this to be collapsed into spaces next,
+    # so the words either side of them stay apart.
+    visible = "".join(
+        character
+        for character in raw
+        if character.isspace() or unicodedata.category(character) not in _HIDDEN_CATEGORIES
+    )
+    summary = " ".join(visible.split())
     while summary and _QUOTE_PAIRS.get(summary[0]) == summary[-1]:
         summary = summary[1:-1].strip()
     summary = first_sentence(summary)

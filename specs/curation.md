@@ -82,7 +82,7 @@ Tags, in order:
 
 Summary, in order:
 
-1. Collapse whitespace and strip wrapping quotes.
+1. Drop control and format characters (Unicode Cc and Cf) other than whitespace, then collapse whitespace and strip wrapping quotes. Whitespace controls such as a newline become a space, so the words either side stay apart.
 2. Keep the first sentence.
 3. If it is over 240 characters, cut at a word boundary and append `…`, keeping the whole summary within 240. Otherwise make sure it ends with `.`, `!`, `?` or `…` (a closing quote or bracket may follow); a trailing comma, semicolon, colon or dash is replaced by a full stop.
 4. Capitalise the first character.

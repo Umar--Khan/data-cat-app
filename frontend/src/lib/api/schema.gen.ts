@@ -118,11 +118,20 @@ export interface components {
          *     }
          */
         DatasetCreate: {
-            /** Description */
+            /**
+             * Description
+             * @description At least one letter, digit, punctuation mark or symbol, and no control or invisible format characters. Tabs and line breaks are allowed.
+             */
             description: string;
-            /** Name */
+            /**
+             * Name
+             * @description At least one letter, digit, punctuation mark or symbol, and no control or invisible format characters.
+             */
             name: string;
-            /** Owner */
+            /**
+             * Owner
+             * @description At least one letter, digit, punctuation mark or symbol, and no control or invisible format characters.
+             */
             owner: string;
         };
         /** FieldError */

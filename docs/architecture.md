@@ -76,7 +76,7 @@ A module imports only from layers below it, and `curation` and `repositories` ne
 
 ### Models
 
-Domain types are frozen, slotted dataclasses. The in-memory store hands out the objects it holds, so immutability is what stops a caller mutating the catalogue. `NewDataset` checks the field length limits itself, because they bound what a curation costs whoever builds one; the wire schema uses the same constants, so a client hears about a limit as a field error first. `Curation` is the one shape of a curation outcome, tags and summary included: `CurationService` returns it and the store keeps it inside `Dataset`. Wire types are Pydantic models that own every HTTP concern (aliases, constraints, `extra="forbid"`, OpenAPI examples) and map from domain objects through `from_attributes`. Routes build `NewDataset` from the validated body, so services never see a Pydantic model.
+Domain types are frozen, slotted dataclasses. The in-memory store hands out the objects it holds, so immutability is what stops a caller mutating the catalogue. `NewDataset` checks the field length limits itself, because they bound what a curation costs whoever builds one; the wire schema uses the same constants, so a client hears about a limit as a field error first. `Curation` is the one shape of a curation outcome, tags and summary included: `CurationService` returns it and the store keeps it inside `Dataset`. Wire types are Pydantic models that own every HTTP concern (aliases, trimming, the character rules, `extra="forbid"`, OpenAPI examples) and map from domain objects through `from_attributes`. Routes build `NewDataset` from the validated body, so services never see a Pydantic model.
 
 ### Dependency injection
 

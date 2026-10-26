@@ -91,6 +91,78 @@ def test_each_field_error_has_its_own_message(
     assert response.json()["errors"] == [{"field": field, "message": message}]
 
 
+def test_invisible_and_control_characters_are_field_errors(
+    client: TestClient, curation_provider: FakeCurationProvider
+) -> None:
+    body = {"name": "\u200b\u200b", "owner": "\x00\x07", "description": "\u202eevil\x1b[31m"}
+
+    response = client.post("/datasets", json=body)
+
+    assert response.status_code == 400
+    assert response.json()["errors"] == [
+        {"field": "name", "message": "This field must not be blank."},
+        {"field": "owner", "message": "This field must not be blank."},
+        {
+            "field": "description",
+            "message": "This field must not contain control or invisible characters.",
+        },
+    ]
+    assert curation_provider.received == []
+
+
+@pytest.mark.parametrize(
+    ("change", "field"),
+    [
+        pytest.param({"name": "\u200b"}, "name", id="zero-width-space"),
+        pytest.param({"owner": "\ufeff"}, "owner", id="byte-order-mark"),
+        pytest.param({"name": "\u0301\u0301"}, "name", id="combining-marks-alone"),
+        pytest.param({"description": "\u2066\u2069"}, "description", id="bidi-isolates"),
+        pytest.param({"description": "\u00a0\u200b\u3000"}, "description", id="spaces-and-format"),
+    ],
+)
+def test_a_value_with_no_visible_character_is_blank(
+    client: TestClient, change: dict[str, str], field: str
+) -> None:
+    response = client.post("/datasets", json={**VALID, **change})
+
+    assert response.json()["errors"] == [
+        {"field": field, "message": "This field must not be blank."}
+    ]
+
+
+@pytest.mark.parametrize(
+    ("change", "field"),
+    [
+        pytest.param({"name": "Trade\u200bConfirmations"}, "name", id="zero-width-space"),
+        pytest.param({"name": "Trade\u202eConfirmations"}, "name", id="bidi-override"),
+        pytest.param({"owner": "\ufeffMiddle Office"}, "owner", id="byte-order-mark"),
+        pytest.param({"owner": "Middle\x07Office"}, "owner", id="bell"),
+        pytest.param({"name": "Trade\tConfirmations"}, "name", id="tab-in-name"),
+        pytest.param({"owner": "Middle\nOffice"}, "owner", id="newline-in-owner"),
+        pytest.param({"description": "Daily\rtrades."}, "description", id="carriage-return"),
+        pytest.param({"description": "Daily\x1b[31m trades."}, "description", id="escape"),
+        pytest.param({"description": "Daily\x85trades."}, "description", id="next-line"),
+    ],
+)
+def test_a_control_or_format_character_is_rejected(
+    client: TestClient, change: dict[str, str], field: str
+) -> None:
+    response = client.post("/datasets", json={**VALID, **change})
+
+    assert response.json()["errors"] == [
+        {"field": field, "message": "This field must not contain control or invisible characters."}
+    ]
+
+
+def test_the_description_keeps_its_tabs_and_line_breaks(client: TestClient) -> None:
+    description = "Daily trades.\n\n\tUpdated nightly."
+
+    response = client.post("/datasets", json={**VALID, "description": description})
+
+    assert response.status_code == 201
+    assert response.json()["description"] == description
+
+
 def test_other_field_errors_keep_pydantics_message(client: TestClient) -> None:
     body = b'{"name": "\\ud800", "owner": "Middle Office", "description": "Daily trades."}'
 

@@ -23,6 +23,8 @@ type ExceptionHandler = Callable[[Request, Any], Coroutine[Any, Any, Response]]
 _MESSAGES: Final[Mapping[str, str]] = {
     "missing": "This field is required.",
     "string_too_short": "This field must not be blank.",
+    "blank": "This field must not be blank.",
+    "control_character": "This field must not contain control or invisible characters.",
     "string_type": "This field must be a string.",
     "extra_forbidden": "This field is not allowed.",
 }

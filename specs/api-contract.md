@@ -9,7 +9,7 @@ The HTTP interface between the React app and the FastAPI backend: the brief's th
 ## Key files
 
 - `backend/src/catalogue/api/routes/datasets.py`, `routes/health.py`: the operations.
-- `backend/src/catalogue/api/schemas.py`: wire models, the camelCase base model. The length limits are constants in `backend/src/catalogue/domain/models.py`, which `NewDataset` also checks.
+- `backend/src/catalogue/api/schemas.py`: wire models, the camelCase base model, the character rules. The length limits are constants in `backend/src/catalogue/domain/models.py`, which `NewDataset` also checks.
 - `backend/src/catalogue/api/problems.py`: problem+json handlers, the 405 `Allow` rebuild, the unhandled-error middleware.
 - `backend/src/catalogue/api/openapi.py`: documents error bodies under `application/problem+json`.
 - `backend/src/catalogue/app.py`: `export_openapi()`, the codegen entry point.
@@ -67,7 +67,9 @@ The HTTP interface between the React app and the FastAPI backend: the brief's th
 | `owner`       | string, trimmed, 1–120 characters                        |
 | `description` | string, trimmed, 1–2000 characters                       |
 
-- Lengths are counted in code points after trimming.
+- Lengths are counted in code points after trimming. Trimming is Python's `str.strip()`: Unicode whitespace, which includes U+001C–U+001F and U+0085 but not U+FEFF.
+- **Visible text.** A value must contain at least one letter, digit, punctuation mark or symbol (Unicode categories L, N, P and S). Whitespace, combining marks on their own and invisible characters do not count, so a value made only of them is blank, with the same message as an empty one.
+- **No control or format characters.** Control characters (Cc) and format characters (Cf: zero-width spaces and joiners, bidirectional controls, the byte-order mark, the soft hyphen) are rejected, except tab and line feed in `description`. A carriage return is rejected too, so a client sends line breaks as `\n`.
 - Unknown fields are rejected, so a client sending `tags` or `id` is told those fields are not accepted.
 - Stored values are the trimmed values.
 
@@ -101,14 +103,16 @@ Every non-2xx response is `application/problem+json`, with `type`, `title`, `sta
 
 A `RequestValidationError` counts as **malformed** when any of its errors has type `json_invalid` or location `("body",)`. Otherwise, when every error is located in the body, each becomes one `errors[]` entry whose `field` is the rest of its location joined with dots: the camelCase body property (`"name"`, not `"body.name"`), or a path such as `"tags.0"` for a nested one. An error located anywhere else gives the generic 400 above. FastAPI's own `HTTPException(400)` for an undecodable body also counts as malformed; it is matched by its detail, so any other 400 keeps its own.
 
-| Pydantic error                                      | `message`                                    |
-| --------------------------------------------------- | -------------------------------------------- |
-| `missing`                                           | This field is required.                      |
-| `string_too_short` (including blank after trimming) | This field must not be blank.                |
-| `string_too_long`                                   | This field must be at most {max} characters. |
-| `string_type`                                       | This field must be a string.                 |
-| `extra_forbidden`                                   | This field is not allowed.                   |
-| anything else                                       | Pydantic's own message                       |
+| Pydantic error                                      | `message`                                                    |
+| --------------------------------------------------- | ------------------------------------------------------------ |
+| `missing`                                           | This field is required.                                      |
+| `string_too_short` (including blank after trimming) | This field must not be blank.                                |
+| `blank` (no visible character)                      | This field must not be blank.                                |
+| `control_character`                                 | This field must not contain control or invisible characters. |
+| `string_too_long`                                   | This field must be at most {max} characters.                 |
+| `string_type`                                       | This field must be a string.                                 |
+| `extra_forbidden`                                   | This field is not allowed.                                   |
+| anything else                                       | Pydantic's own message                                       |
 
 ## Invariants & decided points
 
@@ -128,7 +132,7 @@ A `RequestValidationError` counts as **malformed** when any of its errors has ty
   - `RequestValidationError` and FastAPI's body-parse `HTTPException(400)` both map to the 400 problems above. The brief requires 400; FastAPI defaults to 422.
   - A 405 rebuilds `Allow` from every route that matches the path. Starlette lists only the first route it matched, which breaks RFC 9110.
   - Unhandled exceptions are rendered by a pure-ASGI middleware inside `CORSMiddleware`. Starlette's own 500 handler runs outside all user middleware, so its response would reach the browser without CORS headers and look like a network failure.
-- **The length limits live in the domain as well as the wire schema.** They bound what a curation costs, so `NewDataset` enforces them for every caller, and the wire schema uses the same constants so a client hears about one as a field error first.
+- **Character rules live in the wire schema; length limits in the domain too.** The lengths bound what a curation costs, so `NewDataset` enforces them for every caller. Which characters a client may send is a question for the boundary. Format characters include the zero-width joiner and non-joiner, so an emoji sequence or Persian text that uses them is rejected; invisible differences between two names were judged the greater risk in a catalogue.
 - **422 never appears.** `POST` and `DELETE` declare a `4XX` response of `ProblemDetails` alongside their explicit 400 or 404, which stops FastAPI documenting 422. There is no app-level `default` response, because it would make schemathesis's "every returned status is documented" check pass vacuously.
 - **Error bodies are documented under `application/problem+json`**, the type they are sent with.
 - **camelCase on the wire.** Python stays snake_case through Pydantic's alias generator.
@@ -137,7 +141,11 @@ A `RequestValidationError` counts as **malformed** when any of its errors has ty
   - `pnpm gen:api` runs `export_openapi()`, which builds the app without reading `backend/.env` and with the keyword provider, and writes `frontend/openapi.json` atomically. openapi-typescript then writes `schema.gen.ts`.
   - Both files are committed, and both are excluded from Prettier and ESLint so the generated output stays byte-identical.
   - `pnpm check` regenerates them and fails on any difference.
-- **Field limits are mirrored in the frontend zod schema** with the same semantics: code points after trimming. A test compares the limits with `openapi.json` and includes an astral-plane case.
+- **The frontend zod schema mirrors the length limits**, counted in code points after trimming. A test compares the limits with `openapi.json` and includes an astral-plane case. The two sides differ at the edges, and the API decides:
+  - JS `trim()` strips U+FEFF, which Python's `strip()` keeps and the API then rejects as a format character; `strip()` strips U+001C–U+001F and U+0085, which `trim()` keeps.
+  - zod does not apply the character rules.
+
+  A value the form accepts and the API rejects comes back as a field error, which the form shows inline on that field, so nothing typed is lost.
 
 ## Fixture/mock semantics
 

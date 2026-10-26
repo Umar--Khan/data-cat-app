@@ -1,8 +1,10 @@
+import unicodedata
 from datetime import datetime
-from typing import Literal
+from typing import Final, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
+from pydantic_core import PydanticCustomError
 
 from catalogue.domain.models import (
     MAX_DESCRIPTION_LENGTH,
@@ -11,6 +13,20 @@ from catalogue.domain.models import (
     CurationProviderName,
     CurationSource,
     CurationStatus,
+)
+
+# Controls (Cc) can drive a terminal or break a line the reader never sees, and format characters
+# (Cf) are invisible or reorder the text around them, so two names can look the same while
+# differing, or read differently from how they are stored.
+_HIDDEN_CATEGORIES: Final = frozenset({"Cc", "Cf"})
+# A description is free text from a textarea, so it may keep its tabs and line breaks.
+_DESCRIPTION_CONTROLS: Final = frozenset("\t\n")
+# Letters, numbers, punctuation and symbols. Whitespace, combining marks on their own and the C
+# categories show nothing, so a value made only of them is blank.
+_VISIBLE_GROUPS: Final = frozenset("LNPS")
+_VISIBLE_TEXT: Final = (
+    "At least one letter, digit, punctuation mark or symbol, and no control or invisible "
+    "format characters."
 )
 
 
@@ -48,9 +64,35 @@ class DatasetCreate(CamelModel):
         },
     )
 
-    name: str = Field(min_length=1, max_length=MAX_NAME_LENGTH)
-    owner: str = Field(min_length=1, max_length=MAX_OWNER_LENGTH)
-    description: str = Field(min_length=1, max_length=MAX_DESCRIPTION_LENGTH)
+    name: str = Field(min_length=1, max_length=MAX_NAME_LENGTH, description=_VISIBLE_TEXT)
+    owner: str = Field(min_length=1, max_length=MAX_OWNER_LENGTH, description=_VISIBLE_TEXT)
+    description: str = Field(
+        min_length=1,
+        max_length=MAX_DESCRIPTION_LENGTH,
+        description=f"{_VISIBLE_TEXT} Tabs and line breaks are allowed.",
+    )
+
+    @field_validator("name", "owner")
+    @classmethod
+    def _single_line(cls, value: str) -> str:
+        return _require_visible_text(value, allowed=frozenset())
+
+    @field_validator("description")
+    @classmethod
+    def _free_text(cls, value: str) -> str:
+        return _require_visible_text(value, allowed=_DESCRIPTION_CONTROLS)
+
+
+def _require_visible_text(value: str, *, allowed: frozenset[str]) -> str:
+    categories = [unicodedata.category(character) for character in value]
+    if not any(category[0] in _VISIBLE_GROUPS for category in categories):
+        raise PydanticCustomError("blank", "Value has no visible character")
+    if any(
+        category in _HIDDEN_CATEGORIES and character not in allowed
+        for character, category in zip(value, categories, strict=True)
+    ):
+        raise PydanticCustomError("control_character", "Value has a control or format character")
+    return value
 
 
 class Curation(CamelModel):
