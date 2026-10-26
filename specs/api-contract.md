@@ -30,7 +30,7 @@ The HTTP interface between the React app and the FastAPI backend: the brief's th
 - **Startup state.** Three seed records with ids `"1"`, `"2"` and `"3"`, the brief's tags and summaries, and `curation: { status: "completed", provider: "seed", detail: null }`. Their `createdAt` is the process start time.
 - **Ids** are strings from a counter that continues after the seeds and is never reused: create gives `"4"`, delete `"4"`, create gives `"5"`.
 - **`createdAt`** is taken after curation, immediately before `add()`. List order and `createdAt` therefore always agree, even when two POSTs overlap.
-- **`Location`** is a relative reference. There is no `GET /datasets/{id}`, so following it returns `405` with `Allow: DELETE`.
+- **`Location`** is a relative reference, built from the delete route with `url_for`, so it carries any root path the app is served under (`uvicorn --root-path /catalogue` gives `/catalogue/datasets/{id}`). There is no `GET /datasets/{id}`, so following it returns `405` with `Allow: DELETE`.
 - An unknown route returns `404`, and so does a known path with a trailing slash: Starlette's slash redirect is turned off, because it answers with a bare 307 to an absolute URL built from the `Host` header. An unsupported method returns `405` with an `Allow` header listing every method the path supports.
 - **Restarting the process restores the startup state**, including the restarts `--reload` triggers. Storage is in memory.
 
@@ -73,7 +73,7 @@ The HTTP interface between the React app and the FastAPI backend: the brief's th
 
 ### Problem details
 
-Every non-2xx response is `application/problem+json`, with `type`, `title`, `status`, `detail`, `instance` and `errors` always present. `instance` is the request path percent-encoded as a URI reference (RFC 9457), while `detail` quotes it decoded:
+Every non-2xx response is `application/problem+json`, with `type`, `title`, `status`, `detail`, `instance` and `errors` always present, with one exception: a CORS preflight the policy rejects (an unlisted origin, method or request header) gets `400 text/plain` from Starlette's `CORSMiddleware` before the app runs. A browser acts only on the missing CORS headers and never shows that body. `instance` is the request path percent-encoded as a URI reference (RFC 9457), while `detail` quotes it decoded:
 
 ```json
 {
@@ -93,12 +93,13 @@ Every non-2xx response is `application/problem+json`, with `type`, `title`, `sta
 | ---------------------------------------------------------------------------------------------------- | ------ | ----------------------------- | ---------------------- | ----------------------------------------------------------------------- |
 | One or more fields fail validation                                                                   | 400    | `/problems/validation-error`  | Invalid request body   | One entry per field                                                     |
 | Body is invalid JSON or not an object, is empty, has a non-JSON `Content-Type`, or cannot be decoded | 400    | `/problems/malformed-body`    | Malformed request body | `[]`                                                                    |
+| A query, path or header parameter fails validation (no operation has one that can today)             | 400    | `about:blank`                 | Bad Request            | `[]`; `detail` lists the locations, such as `query.limit`               |
 | Unknown dataset id                                                                                   | 404    | `/problems/dataset-not-found` | Dataset not found      | `[]`; `detail` names the id                                             |
 | Unknown route                                                                                        | 404    | `about:blank`                 | Not Found              | `[]`                                                                    |
 | Unsupported method                                                                                   | 405    | `about:blank`                 | Method Not Allowed     | `[]`; complete `Allow` header                                           |
 | Unhandled exception                                                                                  | 500    | `about:blank`                 | Internal Server Error  | `[]`; generic `detail`, traceback in the log only, CORS headers present |
 
-A `RequestValidationError` counts as **malformed** when any of its errors has type `json_invalid` or location `("body",)`. Otherwise each error becomes one `errors[]` entry with `field` set to `loc[1]`, the camelCase body property (`"name"`, not `"body.name"`). FastAPI's own `HTTPException(400)` for an undecodable body also counts as malformed.
+A `RequestValidationError` counts as **malformed** when any of its errors has type `json_invalid` or location `("body",)`. Otherwise, when every error is located in the body, each becomes one `errors[]` entry whose `field` is the rest of its location joined with dots: the camelCase body property (`"name"`, not `"body.name"`), or a path such as `"tags.0"` for a nested one. An error located anywhere else gives the generic 400 above. FastAPI's own `HTTPException(400)` for an undecodable body also counts as malformed; it is matched by its detail, so any other 400 keeps its own.
 
 | Pydantic error                                      | `message`                                    |
 | --------------------------------------------------- | -------------------------------------------- |
@@ -146,3 +147,4 @@ A `RequestValidationError` counts as **malformed** when any of its errors has ty
 ## Deferred / open
 
 - No update operation and no pagination.
+- **HEAD is not supported.** `HEAD /datasets` and `HEAD /health` return `405`, with `Allow` listing the path's real methods. FastAPI's `APIRoute`, unlike Starlette's own `Route`, does not add HEAD to GET routes, while RFC 9110 expects a general-purpose server to support it. Nothing in the app, its tests or its tooling sends HEAD, and supporting it would take a hidden second route for every GET, or a middleware that runs GET and drops the body, to serve a method no client uses.

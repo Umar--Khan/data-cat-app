@@ -123,3 +123,18 @@ def test_cors_ignores_an_unlisted_origin(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert "access-control-allow-origin" not in response.headers
+
+
+def test_a_preflight_from_an_unlisted_origin_is_the_one_plain_text_error(
+    client: TestClient,
+) -> None:
+    # CORSMiddleware answers before the app runs, and a browser reads only the missing CORS
+    # headers, never this body (specs/api-contract.md, Problem details).
+    response = client.options(
+        "/datasets",
+        headers={"Origin": "http://localhost:4173", "Access-Control-Request-Method": "POST"},
+    )
+
+    assert response.status_code == 400
+    assert response.headers["content-type"].startswith("text/plain")
+    assert "access-control-allow-origin" not in response.headers

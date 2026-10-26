@@ -1,8 +1,10 @@
+import json
 import logging
 from collections.abc import Sequence
 from typing import Any
 
 import pytest
+from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
@@ -241,6 +243,15 @@ def test_an_unsupported_method_is_a_405_problem_with_a_complete_allow_header(
     }
 
 
+def test_head_is_a_405_on_routes_that_answer_get(client: TestClient) -> None:
+    # A known limitation, recorded in specs/api-contract.md: FastAPI does not add HEAD to GET
+    # routes the way Starlette's own Route does.
+    response = client.head("/datasets")
+
+    assert response.status_code == 405
+    assert response.headers["allow"] == "GET, POST"
+
+
 def test_an_unhandled_exception_is_a_500_problem_with_cors_headers(
     settings: Settings, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -301,6 +312,65 @@ async def test_an_http_error_without_a_dedicated_problem_keeps_its_status_and_de
         b'{"type":"about:blank","title":"Conflict","status":409,"detail":"Already exists",'
         b'"instance":"/datasets","errors":[]}'
     )
+
+
+def plain_request() -> Request:
+    return Request({"type": "http", "method": "POST", "path": "/datasets", "headers": []})
+
+
+@pytest.mark.anyio
+async def test_a_400_other_than_a_body_parse_failure_keeps_its_own_detail() -> None:
+    handler = exception_handlers()[HTTPException]
+
+    response = await handler(plain_request(), HTTPException(400, "The page token has expired."))
+
+    assert json.loads(bytes(response.body)) == {
+        "type": "about:blank",
+        "title": "Bad Request",
+        "status": 400,
+        "detail": "The page token has expired.",
+        "instance": "/datasets",
+        "errors": [],
+    }
+
+
+@pytest.mark.anyio
+async def test_a_nested_body_property_is_named_by_its_path() -> None:
+    handler = exception_handlers()[RequestValidationError]
+    error = RequestValidationError(
+        [{"type": "string_type", "loc": ("body", "tags", 0), "msg": "Not a string", "input": 1}]
+    )
+
+    response = await handler(plain_request(), error)
+
+    assert json.loads(bytes(response.body))["errors"] == [
+        {"field": "tags.0", "message": "This field must be a string."}
+    ]
+
+
+@pytest.mark.anyio
+async def test_an_invalid_parameter_outside_the_body_is_a_bad_request_without_field_errors() -> (
+    None
+):
+    handler = exception_handlers()[RequestValidationError]
+    error = RequestValidationError(
+        [
+            {"type": "int_parsing", "loc": ("query", "limit"), "msg": "Not a number", "input": "x"},
+            {"type": "missing", "loc": ("body", "name"), "msg": "Field required", "input": {}},
+        ]
+    )
+
+    response = await handler(plain_request(), error)
+
+    assert response.status_code == 400
+    assert json.loads(bytes(response.body)) == {
+        "type": "about:blank",
+        "title": "Bad Request",
+        "status": 400,
+        "detail": "The request has invalid parameters: query.limit, body.name.",
+        "instance": "/datasets",
+        "errors": [],
+    }
 
 
 @pytest.mark.anyio

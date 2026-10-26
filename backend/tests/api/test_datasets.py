@@ -131,6 +131,18 @@ def test_location_is_a_relative_reference_that_only_delete_accepts(client: TestC
     assert client.delete(location).json() == created.json()
 
 
+def test_location_includes_the_root_path_the_app_is_served_under(settings: Settings) -> None:
+    app = create_app(settings, curation_provider=FakeCurationProvider(), clock=TickingClock())
+
+    # As uvicorn --root-path sends it: the path includes the root path.
+    with TestClient(app, root_path="/catalogue") as client:
+        created = client.post("/catalogue/datasets", json=TEST_PAYLOAD)
+        location = created.headers["location"]
+
+        assert location == "/catalogue/datasets/4"
+        assert client.delete(location).status_code == 200
+
+
 def test_ids_continue_after_the_seeds_and_are_never_reused(client: TestClient) -> None:
     assert client.post("/datasets", json=payload("First")).json()["id"] == "4"
     assert client.delete("/datasets/4").status_code == 200

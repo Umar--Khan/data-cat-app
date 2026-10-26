@@ -84,7 +84,7 @@ Domain types are frozen, slotted dataclasses. The in-memory store hands out the 
 
 ### Errors
 
-Every non-2xx response is RFC 9457 problem+json. Three framework overrides are needed to get there: 400 instead of 422 for invalid bodies, a complete `Allow` header on 405, and CORS headers on unhandled 500s. The mapping and the reasons are in [specs/api-contract.md](../specs/api-contract.md).
+Every non-2xx response is RFC 9457 problem+json, except the `400 text/plain` that `CORSMiddleware` gives a preflight it rejects. Three framework overrides are needed to get there: 400 instead of 422 for invalid bodies, a complete `Allow` header on 405, and CORS headers on unhandled 500s. The mapping and the reasons are in [specs/api-contract.md](../specs/api-contract.md).
 
 ### State and concurrency
 

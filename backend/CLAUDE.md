@@ -37,7 +37,7 @@ Read the spec before changing behaviour it pins. Update it in the same commit as
 ## Errors
 
 - Services and repositories raise domain errors. Only `api/` knows HTTP: never raise `HTTPException` outside it.
-- Every non-2xx response is problem+json. Invalid bodies are 400, never 422.
+- Every non-2xx response is problem+json, except the `400 text/plain` that `CORSMiddleware` gives a preflight it rejects. Invalid bodies are 400, never 422.
 - Curation failures are not errors. Providers raise `CurationError`, and `CurationService` turns every failure into a stored record with `curation.status: "failed"`. Its `curate` never raises and holds the only broad `except` that lets a request carry on; the unhandled-error middleware's catch-all only renders the 500 problem.
 - `curation.detail` is shown to users: never SDK messages, status codes or request ids. Those go to the log.
 

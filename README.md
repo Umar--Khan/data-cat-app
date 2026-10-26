@@ -61,7 +61,7 @@ Claude is called with structured outputs, so its reply is parsed into the same s
 | Delete removes the entry without a page refresh            | the same two files; the E2E test checks a `window` sentinel survives and no navigation happens                                       |
 | An empty name or description shows an inline error         | the same two files                                                                                                                   |
 
-**Stricter than the checklist:** `owner` is required too. The UI marks all three fields as required, and the API returns a 400 for a missing owner as it does for the other two. The API also rejects unknown fields and values over the documented length limits, and every error is an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) `application/problem+json` body.
+**Stricter than the checklist:** `owner` is required too. The UI marks all three fields as required, and the API returns a 400 for a missing owner as it does for the other two. The API also rejects unknown fields and values over the documented length limits. Every error is an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) `application/problem+json` body, except the plain-text 400 a rejected CORS preflight gets.
 
 ### Rubric
 

@@ -26,6 +26,9 @@ _MESSAGES: Final[Mapping[str, str]] = {
     "string_type": "This field must be a string.",
     "extra_forbidden": "This field is not allowed.",
 }
+# FastAPI's detail for a body it read but could not decode. Matching it, rather than every 400,
+# keeps any other 400 from being reported as a malformed body.
+_BODY_PARSE_FAILED: Final = "There was an error parsing the body"
 
 
 def exception_handlers() -> dict[int | type[Exception], ExceptionHandler]:
@@ -80,12 +83,21 @@ async def _invalid_body(request: Request, error: RequestValidationError) -> JSON
     errors: Sequence[Mapping[str, Any]] = error.errors()
     if any(_is_malformed(entry) for entry in errors):
         return _malformed_body(request)
+    # Field errors name body properties, so a query, path or header parameter that fails gets a
+    # problem of its own. No operation takes one that can fail today.
+    if not all(_location(entry)[:1] == ("body",) for entry in errors):
+        locations = ", ".join(".".join(_location(entry)) for entry in errors)
+        return _about_blank(
+            request.url.path,
+            HTTPStatus.BAD_REQUEST,
+            f"The request has invalid parameters: {locations}.",
+        )
 
-    # Every remaining location is ("body", property): the operations take no query or header
-    # parameters, and a string path parameter cannot fail validation. Each property of a flat
-    # model fails in one way at a time, so there is one error per field.
+    # A nested property is named by its path, as "tags.0". Each property of a flat model fails
+    # in one way at a time, so there is one error per field.
     field_errors = [
-        FieldError(field=str(entry["loc"][1]), message=_message(entry)) for entry in errors
+        FieldError(field=".".join(_location(entry)[1:]), message=_message(entry))
+        for entry in errors
     ]
     fields = ", ".join(error.field for error in field_errors)
     invalid = "an invalid field" if len(field_errors) == 1 else "invalid fields"
@@ -105,6 +117,10 @@ def _is_malformed(entry: Mapping[str, Any]) -> bool:
     # An error located at the body as a whole means there was no object to validate fields of:
     # the body was empty, not an object, or not sent as JSON.
     return entry["type"] == "json_invalid" or tuple(entry["loc"]) == ("body",)
+
+
+def _location(entry: Mapping[str, Any]) -> tuple[str, ...]:
+    return tuple(str(part) for part in entry["loc"])
 
 
 def _message(entry: Mapping[str, Any]) -> str:
@@ -129,9 +145,7 @@ def _malformed_body(request: Request) -> JSONResponse:
 async def _http_error(request: Request, error: HTTPException) -> JSONResponse:
     path = request.url.path
     match error.status_code:
-        case HTTPStatus.BAD_REQUEST:
-            # FastAPI raises this itself when the body bytes cannot be decoded as text. The
-            # operations raise no HTTP errors of their own, so a 400 here is always that.
+        case HTTPStatus.BAD_REQUEST if error.detail == _BODY_PARSE_FAILED:
             return _malformed_body(request)
         case HTTPStatus.NOT_FOUND:
             return _about_blank(path, HTTPStatus.NOT_FOUND, f"No resource exists at {path}.")

@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Path, Response, status
+from fastapi import APIRouter, Path, Request, Response, status
 
 from catalogue.api.deps import DatasetServiceDep
 from catalogue.api.openapi import problem
@@ -35,12 +35,14 @@ async def list_datasets(datasets: DatasetServiceDep) -> list[Dataset]:
     },
 )
 async def create_dataset(
-    body: DatasetCreate, datasets: DatasetServiceDep, response: Response
+    body: DatasetCreate, datasets: DatasetServiceDep, request: Request, response: Response
 ) -> Dataset:
     dataset = await datasets.create(
         NewDataset(name=body.name, owner=body.owner, description=body.description)
     )
-    response.headers["Location"] = f"/datasets/{dataset.id}"
+    # Built from the route rather than spelled out, so it stays right under a root path or a
+    # versioned mount.
+    response.headers["Location"] = request.url_for("delete_dataset", id=dataset.id).path
     return Dataset.model_validate(dataset)
 
 
