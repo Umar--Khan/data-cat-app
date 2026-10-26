@@ -31,22 +31,23 @@ Details:
 - **Settings is the only source of credentials and host.**
   - A blank or whitespace-only key is normalised to unset.
   - The factory always passes `api_key` and `base_url` explicitly. `base_url` defaults to `https://api.anthropic.com` and is never `None`.
+  - `ANTHROPIC_WORKSPACE_ID`, when set, goes on every request as the `anthropic-workspace-id` header through the client's `default_headers`. A key not scoped to a workspace gets a 400 without it, and the SDK never applies the variable to an API key.
   - Values in `backend/.env` therefore take effect even though the SDK never reads that file, and the SDK's own discovery (`ANTHROPIC_AUTH_TOKEN`, `ant auth login` profiles) cannot choose a credential or host.
 - **Visibility.** Startup logs one line with the provider, model and API host. `GET /health` reports the provider, and `pnpm dev` prints it.
 - **Offline failure configuration.** `CATALOGUE_CURATION_PROVIDER=anthropic ANTHROPIC_API_KEY=offline ANTHROPIC_BASE_URL=http://127.0.0.1:9` uses real settings and no test-only code, and makes every curation fail as `unavailable` in under a second. `pnpm dev:degraded` and `verify_api.py --degraded` use it.
 
 ### Claude request
 
-- **Call:** `client.beta.messages.parse(...)`. The beta namespace carries the refusal fallback.
+- **Call:** `client.beta.messages.with_raw_response.parse(...)`, then `parse()` on the response. The beta namespace carries the refusal fallback, and the raw response keeps the request id and `stop_reason` when parsing fails.
 - **Model:** `CATALOGUE_ANTHROPIC_MODEL` (default `claude-opus-5-5`), with `max_tokens=4096`, since Opus 5.5 always thinks and thinking counts toward the limit.
 - **Effort:** `output_config={"effort": "low"}`, with no `thinking` field. Opus 5.5 cannot disable thinking, so effort is the only control on latency and cost. No sampling parameters: they return 400 on API version 2026-10-21.
 - **Output:** `output_format=CurationDraft`, sent on the wire as `output_config.format` next to `effort`.
   - `CurationDraft` carries types only. Its docstring and field descriptions are written for Claude, because the SDK sends them as the schema's descriptions.
-  - Limits live in those descriptions and in the normaliser. The SDK strips `maxItems` and `maxLength` from the request schema but would still enforce them client-side, so a single surplus tag would fail the whole curation.
+  - Limits live in those descriptions and in the normaliser. The SDK moves `maxItems` and `maxLength` out of the request schema into the field's description (as `{maxItems: 6}`) but still enforces them client-side, so a single surplus tag would fail the whole curation.
 - **Caching:** the system prompt is one text block marked `cache_control: {"type": "ephemeral"}`. Below the model's minimum cacheable prefix, the API skips caching silently.
 - **Refusal fallback:** `betas=["server-side-fallback-2026-07-01"]` and `fallbacks="default"`. If a safety classifier refuses, the API re-runs the request on the recommended fallback model within the same call. These are sent only when the configured model is in `FALLBACK_MODELS`, a constant in `anthropic_provider.py` (Opus 5.5, Opus 5, Fable 5.1, Sonnet 5.5), so changing the model can never turn every call into a 400.
 - **Deadline:** `Timeout(budget, connect=5)` on the client, `max_retries=1`, and the whole call wrapped in `asyncio.timeout(budget)`, where the budget is `CATALOGUE_ANTHROPIC_TIMEOUT_SECONDS` (20 s). The outer timeout is the real deadline, because the SDK honours any `retry-after` without an upper bound.
-- **Logging:** on success, the provider logs at INFO the model that served the request, token usage (including cache reads), the request id, and whether a fallback ran.
+- **Logging:** on success, the provider logs at INFO the model that served the request, token usage (including cache reads and writes), the request id, and whether a fallback ran. A refusal, a `max_tokens` stop or a missing parsed output has no SDK exception behind it, so for those the provider logs at WARNING the stop reason, the refusal category, the serving model, whether a fallback ran and the request id. When `parse()` raises `ValidationError`, it logs at WARNING the raw `stop_reason` and the request id from the raw response, since a reply cut off at `max_tokens` and a refusal partway through fail to parse alike.
 
 ### Prompt
 
@@ -91,10 +92,10 @@ Every failure saves the record with `tags: []`, `summary: null` and `curation.st
 
 | Failure          | Trigger                                                                                                                                                                                                    | `curation.detail`                                      |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `timeout`        | Budget exceeded (including `retry-after` waits); `APITimeoutError`                                                                                                                                         | AI curation timed out.                                 |
+| `timeout`        | Budget exceeded (including `retry-after` waits); `APITimeoutError`; `APIStatusError` with status 408                                                                                                       | AI curation timed out.                                 |
 | `rate_limited`   | `RateLimitError` after the one retry                                                                                                                                                                       | The AI service is handling too many requests.          |
 | `unavailable`    | `APIConnectionError`; any `APIStatusError` with status ≥ 500. Classified by status code, because 529 `OverloadedError` is not a subclass of `InternalServerError`.                                         | The AI service could not be reached.                   |
-| `misconfigured`  | `APIStatusError` with status < 500, other than 429 (bad model, 401, 402, 403, 404)                                                                                                                         | AI curation is not configured correctly on the server. |
+| `misconfigured`  | `APIStatusError` with status < 500, other than 408 and 429 (bad model, 401, 402, 403, 404)                                                                                                                 | AI curation is not configured correctly on the server. |
 | `refused`        | `stop_reason == "refusal"`. A fallback model, if one ran, also refused.                                                                                                                                    | The AI model declined to curate this description.      |
 | `invalid_output` | `pydantic.ValidationError` from `parse()` (truncated JSON, prose, a refusal partway through output); `stop_reason == "max_tokens"`; `parsed_output is None`; no tag or no summary left after normalisation | The AI response could not be used.                     |
 | `unexpected`     | Any other exception from a provider or the normaliser                                                                                                                                                      | AI curation failed unexpectedly.                       |
@@ -158,7 +159,7 @@ The stored seed records keep the brief's own tags, summaries and tag order. Thes
 
 ### Claude provider tests
 
-The provider runs the real `AsyncAnthropic` over `httpx2.MockTransport`, injected through the SDK's `http_client`, with no network. The behaviours under test are SDK behaviours: when `ValidationError` is raised, the 529 class hierarchy, and the uncapped `retry-after`. A hand-written fake of `parse()` would encode assumptions about them and stay green through an SDK upgrade that changes them. There is one case per failure row, plus retry, deadline and captured-request cases. Canned retryable responses send `retry-after-ms: 1`.
+The provider runs the real `AsyncAnthropic` from `build_client()` over `httpx2.MockTransport`, injected through the SDK's `http_client` as a `DefaultAsyncHttpxClient`, with no network. A `CredentialsError` raised inside the transport surfaces from `parse()` unwrapped, which is how the tests show the provider leaves it to `CurationService` as `unexpected`. The behaviours under test are SDK behaviours: when `ValidationError` is raised, the 529 class hierarchy, and the uncapped `retry-after`. A hand-written fake of `parse()` would encode assumptions about them and stay green through an SDK upgrade that changes them. There is one case per failure row, plus retry, deadline and captured-request cases. Canned retryable responses send `retry-after-ms: 1`.
 
 ## Deferred / open
 

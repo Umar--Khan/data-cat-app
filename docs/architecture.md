@@ -92,13 +92,14 @@ There is one uvicorn worker, routes are async, and repository methods never awai
 
 ### Configuration
 
-pydantic-settings reads the environment first and then `backend/.env`, resolved from the package rather than the working directory. An unknown key in `backend/.env` fails startup, so a misspelt `CATALOGUE_CURATION_PROVIDER` cannot silently fall back to `auto`. `.env.example` leaves the code defaults commented out, so a later change to a default reaches existing checkouts. App settings use the `CATALOGUE_` prefix. The two Anthropic variables keep their conventional names and reach the SDK only through Settings ([provider selection](../specs/curation.md#provider-selection)).
+pydantic-settings reads the environment first and then `backend/.env`, resolved from the package rather than the working directory. An unknown key in `backend/.env` fails startup, so a misspelt `CATALOGUE_CURATION_PROVIDER` cannot silently fall back to `auto`. `.env.example` leaves the code defaults commented out, so a later change to a default reaches existing checkouts. App settings use the `CATALOGUE_` prefix. The Anthropic variables keep their conventional names and reach the SDK only through Settings ([provider selection](../specs/curation.md#provider-selection)).
 
 | Variable                              | Default                     | Purpose                                                                                     |
 | ------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------- |
 | `CATALOGUE_CURATION_PROVIDER`         | `auto`                      | `auto`, `keyword` or `anthropic`                                                            |
 | `ANTHROPIC_API_KEY`                   | unset                       | Enables Claude under `auto`. A key exported in the shell counts too.                        |
 | `ANTHROPIC_BASE_URL`                  | `https://api.anthropic.com` | API host                                                                                    |
+| `ANTHROPIC_WORKSPACE_ID`              | unset                       | Workspace for a key not scoped to one; sent as the `anthropic-workspace-id` header          |
 | `CATALOGUE_ANTHROPIC_MODEL`           | `claude-opus-5-5`           |                                                                                             |
 | `CATALOGUE_ANTHROPIC_TIMEOUT_SECONDS` | `20`                        | Total curation budget, retries included                                                     |
 | `CATALOGUE_KEYWORD_DELAY_MS`          | `0`                         | Simulated keyword latency. `.env.example` sets 1200 so the pending state is visible in dev. |

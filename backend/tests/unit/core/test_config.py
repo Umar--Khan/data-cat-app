@@ -17,6 +17,7 @@ def test_defaults_match_the_configuration_table(monkeypatch: pytest.MonkeyPatch)
     assert settings.curation_provider == "auto"
     assert settings.anthropic_api_key is None
     assert settings.anthropic_base_url == "https://api.anthropic.com"
+    assert settings.anthropic_workspace_id is None
     assert settings.anthropic_model == "claude-opus-5-5"
     assert settings.anthropic_timeout_seconds == 20
     assert settings.keyword_delay_ms == 0
@@ -29,6 +30,15 @@ def test_blank_key_in_the_environment_is_unset(monkeypatch: pytest.MonkeyPatch, 
     monkeypatch.setenv("ANTHROPIC_API_KEY", value)
 
     assert Settings(_env_file=None).anthropic_api_key is None
+
+
+@pytest.mark.parametrize("value", ["", " ", "\t\n  "])
+def test_blank_workspace_in_the_environment_is_unset(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("ANTHROPIC_WORKSPACE_ID", value)
+
+    assert Settings(_env_file=None).anthropic_workspace_id is None
 
 
 def test_blank_key_passed_directly_is_unset() -> None:
@@ -49,11 +59,13 @@ def test_anthropic_variables_are_read_by_their_conventional_names(
 ) -> None:
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
     monkeypatch.setenv("ANTHROPIC_BASE_URL", "http://127.0.0.1:4010")
+    monkeypatch.setenv("ANTHROPIC_WORKSPACE_ID", "wrkspc_test")
 
     settings = Settings(_env_file=None)
 
     assert settings.anthropic_api_key == SecretStr("sk-ant-test")
     assert settings.anthropic_base_url == "http://127.0.0.1:4010"
+    assert settings.anthropic_workspace_id == "wrkspc_test"
 
 
 def test_anthropic_variables_ignore_the_catalogue_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -172,13 +184,16 @@ def test_env_file_is_read_and_the_environment_wins(
 ) -> None:
     env_file = tmp_path / ".env"
     env_file.write_text(
-        "ANTHROPIC_API_KEY=sk-ant-from-file\nCATALOGUE_ANTHROPIC_MODEL=claude-from-file\n"
+        "ANTHROPIC_API_KEY=sk-ant-from-file\n"
+        "ANTHROPIC_WORKSPACE_ID=wrkspc_from_file\n"
+        "CATALOGUE_ANTHROPIC_MODEL=claude-from-file\n"
     )
     monkeypatch.setenv("CATALOGUE_ANTHROPIC_MODEL", "claude-from-shell")
 
     settings = Settings(_env_file=env_file)
 
     assert settings.anthropic_api_key == SecretStr("sk-ant-from-file")
+    assert settings.anthropic_workspace_id == "wrkspc_from_file"
     assert settings.anthropic_model == "claude-from-shell"
 
 

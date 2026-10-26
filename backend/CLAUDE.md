@@ -43,7 +43,7 @@ Read the spec before changing behaviour it pins. Update it in the same commit as
 
 ## Configuration
 
-- `core/config.py` `Settings` is the only reader of the environment and `.env`, and the only source of the Anthropic key and host.
+- `core/config.py` `Settings` is the only reader of the environment and `.env`, and the only source of the Anthropic key, host and workspace.
 - A new variable needs a `Settings` field, a line in `.env.example` with a comment above it and the assignment itself commented out when it holds the code default (a test fails if the line is missing), and a row in the architecture Configuration table.
 
 ## Testing

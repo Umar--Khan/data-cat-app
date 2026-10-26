@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     )
 
     curation_provider: Literal["auto", "anthropic", "keyword"] = "auto"
-    # The two Anthropic variables keep their conventional names, so a key exported in the shell
+    # The Anthropic variables keep their conventional names, so a key exported in the shell
     # counts. They still reach the SDK only through these fields, never by the SDK's own lookup.
     anthropic_api_key: SecretStr | None = Field(default=None, validation_alias="ANTHROPIC_API_KEY")
     anthropic_base_url: str = Field(
@@ -32,15 +32,20 @@ class Settings(BaseSettings):
         validation_alias="ANTHROPIC_BASE_URL",
         pattern=r"^https?://\S+$",
     )
+    # A key that is not scoped to a workspace is rejected without one. The SDK applies the
+    # variable only to workload-federation credentials, never to an API key.
+    anthropic_workspace_id: str | None = Field(
+        default=None, validation_alias="ANTHROPIC_WORKSPACE_ID"
+    )
     anthropic_model: str = "claude-opus-5-5"
     anthropic_timeout_seconds: float = Field(default=20, gt=0)
     keyword_delay_ms: int = Field(default=0, ge=0, le=10_000)
     cors_origins: list[Origin] = ["http://localhost:5173"]
     log_level: LogLevel = "INFO"
 
-    @field_validator("anthropic_api_key", mode="before")
+    @field_validator("anthropic_api_key", "anthropic_workspace_id", mode="before")
     @classmethod
-    def _blank_key_is_unset(cls, value: object) -> object:
+    def _blank_is_unset(cls, value: object) -> object:
         if isinstance(value, SecretStr):
             value = value.get_secret_value()
         if isinstance(value, str):
