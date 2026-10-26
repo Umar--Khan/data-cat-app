@@ -21,9 +21,9 @@ Design principles:
 3. **Every state is designed:** idle, pending, success, partial success (curation failed), empty, loading, failed load, and failed refresh with stale data.
 4. **Status is text first.** Colour and icon reinforce the words and never replace them.
 5. **Native before ARIA.** `button`, `label`, `ul`, `dl` and `dialog` come first. ARIA only adds names, descriptions and live regions.
-6. **Quiet type.** Inter Variable at weights 400, 500 and 600: `text-2xl` for the `h1`, `text-lg` for `h2`, `text-base` for `h3` and body, `text-sm` for labels and metadata, `text-xs` for tags.
+6. **Quiet type.** Inter Variable at weights 400, 500 and 600: `text-2xl` for the `h1`, `text-lg` for `h2`, `text-base` for `h3` and body, `text-sm` for labels and metadata, `text-xs` for tags and badges.
 7. **4 px rhythm**, on Tailwind's default spacing scale: field gap `1.5`, card padding `5`–`6`, gap between cards `3`, between sections `8`.
-8. **Restrained motion.** Colour and opacity only, 150 ms or less, behind `motion-safe`.
+8. **Restrained motion.** Colour and opacity only, 150 ms or less, behind `motion-safe`. The one exception is the pending spinner's rotation, also behind `motion-safe`: under reduced motion it stays still and the button's label carries the state. The one exception is the pending spinner's rotation, also behind `motion-safe`, which stops under reduced motion while the button label still carries the state.
 
 ## Data contract
 
@@ -54,7 +54,7 @@ Tokens. Values are Tailwind 4 palette colours in OKLCH. Ratios are WCAG contrast
 ## Invariants & decided points
 
 - **The default palette, radii and shadows are removed** (`--color-*: initial` and the same for radii and all four shadow namespaces: box, inset, drop and text). A raw hue in a component produces no CSS, so the tokens cannot be bypassed by accident, and contrast is checked once, on the tokens. White is therefore available only as the `surface` and `on-accent` tokens. Rejected: keeping the default palette and relying on convention.
-- **The type scale and spacing keep Tailwind's default keys.** tailwind-merge resolves conflicts only on keys it knows. It reads custom `text-*` names as colours and does not merge custom radius names.
+- **The type scale and spacing keep Tailwind's default keys.** The conflict resolver built into tailwind-variants (tailwind-merge's algorithm, bundled since 3.3, so tailwind-merge is not a dependency) resolves conflicts only on keys it knows. It reads custom `text-*` names as colours and does not merge custom radius names.
 - **Variants use `tv()` from tailwind-variants.**
   - Prop types come from `VariantProps`.
   - A caller's `className` goes through `tv`'s `class` slot, so overrides merge correctly.

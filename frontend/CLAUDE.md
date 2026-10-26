@@ -37,7 +37,7 @@ src/test/                test setup, axe helper, MSW
 
 - Semantic tokens only (`bg-surface`, `text-fg-muted`), defined in `@theme` in `src/index.css`. The default palette, radii and shadows are removed, so a raw class such as `bg-blue-500` silently emits no CSS. A token changes in `specs/styling.md` and `index.css` together.
 - Each primitive has one `tv()`. A caller's `className` goes through `tv`'s `class` slot. Ad-hoc composition uses `cn` from tailwind-variants.
-- Motion is colour and opacity only, 150 ms or less, behind `motion-safe:`. Never remove the global focus ring.
+- Motion is colour and opacity only, 150 ms or less, behind `motion-safe:`. The pending spinner's rotation is the one exception, also behind `motion-safe:`. Never remove the global focus ring.
 
 ## Accessibility
 
