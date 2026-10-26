@@ -57,11 +57,12 @@ The single page of the app: a form to register a dataset and, below it, the cata
 ### List
 
 - **Order** is server order: oldest first, new rows appended.
-- **Status region.** An always-mounted, screen-reader-only `role="status"` region announces "Loading datasets…" and, when a load fails, "Couldn't load datasets".
+- **Status region.** An always-mounted, screen-reader-only `role="status"` region announces "Loading datasets…", "Couldn't load datasets" when a load fails, and "Couldn't refresh. Showing the last loaded list." when a refresh fails. It is cleared while a retry runs, so a repeated failure is announced again.
 - **Loading.** Three `aria-hidden` skeleton cards.
 - **Empty.** "No datasets yet. Add one with the Add a dataset form."
-- **Failed load, nothing on screen.** Danger alert "Couldn't load datasets" with the error message and a "Try again" button. The alert has no live role, because the status region announces it.
-- **Failed background refresh, data still on screen.** The data stays, with a warning alert "Couldn't refresh. Showing the last loaded list." and "Try again". No live role.
+- **Failed load, nothing on screen.** Danger alert "Couldn't load datasets" with the error message and a "Try again" button. The alert has no live role, because the status region announces it. Try again puts the list back into the loading state (skeleton, "Loading datasets…").
+- **Failed background refresh, data still on screen.** The data stays, with a warning alert "Couldn't refresh. Showing the last loaded list." and "Try again", which shows pending while the retry runs. No live role, because the status region announces it.
+- **Try again** moves focus to the "Datasets" heading, because the alert holding the button goes away when the retry starts (failed load) or succeeds (failed refresh).
 - **Row.** An `<li>` containing an `<article aria-labelledby>` with:
   - the `h3` dataset name, focusable with `tabIndex={-1}`;
   - the owner, as a `<dl>` pair;
@@ -72,7 +73,7 @@ The single page of the app: a form to register a dataset and, below it, the cata
 
 ### Curation badge
 
-An exhaustive switch over `curation`, so a new enum value fails `tsc` after codegen:
+A lookup keyed by the generated `curation` unions, so a new enum value fails `tsc` after codegen:
 
 | `curation`             | Badge             | Icon          |
 | ---------------------- | ----------------- | ------------- |
@@ -92,7 +93,7 @@ Every badge carries text. Colour and icon only reinforce it.
    - buttons Cancel and "Delete dataset", in that order, with Cancel focused on open.
 3. Esc or Cancel closes the dialog, and focus returns to the row's Delete button.
 4. Confirm:
-   - The focus target is chosen first: the next row's heading, else the previous row's, else the "Datasets" heading.
+   - The focus target is chosen first: the next row's heading, else the previous row's, else the "Datasets" heading. When a refresh has already removed the row, it has no neighbours, so the target is the "Datasets" heading.
    - The dialog closes and the delete mutation starts. The row disappears at once, because pending deletes are filtered out of the list.
    - Focus moves to the target once the row has left the DOM. This happens exactly once, so later list changes never move focus.
 5. The outcome is handled in the mutation's own callbacks, so it is reported even when deletes overlap:
@@ -143,10 +144,10 @@ An error boundary at the root shows a fallback with a reload button.
 | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Structure (1.3.1, 2.4.1, 2.4.6)               | Landmarks; one `h1`, an `h2` per section, an `h3` per row, with no skipped levels; a real `<ul>` list; a skip link                                                                                                                       |
 | Labels and errors (1.3.1, 3.3.1–3.3.3, 4.1.2) | `<label for>` on every control; native `required` with `noValidate` on the form; hint and error through `aria-describedby`; `aria-invalid` only when there is an error; error text names the fix; focus moves to the first invalid field |
-| Status messages (4.1.3)                       | Toasts in a polite live region; always-mounted `role="status"` regions for pending, loading and load failure; each event announced once                                                                                                  |
+| Status messages (4.1.3)                       | Toasts in a polite live region; always-mounted `role="status"` regions for pending, loading, load failure and refresh failure; each event announced once                                                                                 |
 | Keyboard (2.1.1, 2.1.2, 2.4.3)                | Native controls only; no positive `tabindex`; the dialog is modal and closes on Esc; focus rules as above                                                                                                                                |
 | Focus visible (2.4.7, 2.4.11, 1.4.11)         | A global `:focus-visible` ring of at least 3:1 on every background; toasts never hide the focused element                                                                                                                                |
-| Target size (2.5.8)                           | Primary controls 40 px; row Delete 32 px; toast close 24 px                                                                                                                                                                              |
+| Target size (2.5.8)                           | Primary controls 40 px; row Delete and Try again 32 px; toast close 24 px                                                                                                                                                                |
 | Colour (1.4.1, 1.4.3, 1.4.11)                 | Text on every status; token contrast as in [styling.md](./styling.md); controls keep a visible boundary in forced-colours mode                                                                                                           |
 | Reflow and resize (1.4.4, 1.4.10, 1.4.12)     | One column; rem-based type; no fixed heights; works at 320 CSS px and 200 % zoom                                                                                                                                                         |
 | Error prevention (3.3.4)                      | Delete is confirmed                                                                                                                                                                                                                      |
