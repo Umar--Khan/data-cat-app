@@ -49,5 +49,5 @@ Run from the repository root. Focused runs (one test, watch mode) are in `backen
 - Tests never call the real Anthropic API.
 - `frontend/openapi.json` and `schema.gen.ts` change only through `pnpm gen:api`. The drift check in `pnpm check:api` fails if they differ from the backend's OpenAPI document.
 - Conventional Commits, enforced by commitlint and authored by the repository owner. No AI attribution in commits or PR descriptions; `.claude/settings.json` turns Claude Code's off.
-- Plans and working notes go under `.claude/plans/`, which is git-ignored.
-- `README.txt`, the original brief, is local-only and git-ignored. Never commit it; tracked files take only the seed data and test payload from it.
+- Plans and working notes go under `.claude/plans/`, which is git-ignored, and the pre-commit hook refuses it even when forced.
+- `README.txt`, the original brief, is local-only: git-ignored and refused by the pre-commit hook. Never commit it; tracked files take only the seed data and test payload from it.

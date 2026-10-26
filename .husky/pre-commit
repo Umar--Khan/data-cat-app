@@ -1,1 +1,12 @@
+# `git add -f` gets past .gitignore, so the files that must never leave this machine are refused
+# here as well. Deletions are allowed, so a file committed by mistake can still be removed.
+local_only=$(git diff --cached --name-only --diff-filter=ACMR |
+  grep -E '^(README\.txt|backend/\.env|frontend/\.env\.local|\.claude/plans/.*|\.claude/settings\.local\.json)$' || true)
+if [ -n "$local_only" ]; then
+  echo "Local-only files are staged and must not be committed:"
+  echo "$local_only"
+  echo "Unstage them with: git restore --staged <path>"
+  exit 1
+fi
+
 pnpm exec lint-staged
