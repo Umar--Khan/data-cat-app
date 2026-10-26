@@ -45,11 +45,11 @@ The name is `bootstrap`, not `setup`, because on pnpm 9 and 10 `pnpm setup` runs
 
 Three jobs run in parallel on pushes to `main` and on pull requests, each with a 15-minute timeout. A composite setup action installs pnpm (version from `packageManager`), Node (from `.nvmrc`) and uv (pinned to the local toolchain's release), with caches; the `frontend` job skips uv and the backend environment. `UV_LOCKED=1` fails the run on a stale lockfile.
 
-| Job        | Steps                                                                                                                         |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `backend`  | `pnpm check:api`                                                                                                              |
-| `frontend` | Install Chromium (headless shell); `pnpm check:web`; production build                                                         |
-| `e2e`      | Install Chromium; `pnpm verify:api`; `pnpm verify:api --degraded`; `pnpm test:e2e`. On failure, upload the Playwright report. |
+| Job        | Steps                                                                                                                                                           |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `backend`  | `pnpm check:api`                                                                                                                                                |
+| `frontend` | Install Chromium (headless shell); `pnpm check:web`; production build                                                                                           |
+| `e2e`      | Install Chromium (headless shell); `pnpm verify:api`; `pnpm verify:api --degraded`; `pnpm test:e2e`. On failure, upload the Playwright report and test results. |
 
 ### Coverage gates
 
