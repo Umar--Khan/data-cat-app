@@ -8,7 +8,7 @@ Turns a dataset's name, owner and description into up to six tags and a one-sent
 
 ## Key files
 
-- `backend/src/catalogue/curation/base.py`: `CurationProvider` protocol, `CurationDraft`, `CurationError`, `CurationFailure`.
+- `backend/src/catalogue/curation/base.py`: `CurationProvider` protocol, `CurationDraft`, `CurationError`, `CurationFailure` (each member carries its row's `detail`), `CurationResult`.
 - `curation/service.py`: `CurationService`, the failure boundary.
 - `curation/normalise.py`: tag and summary normalisation, shared by both providers.
 - `curation/prompt.py`: `SYSTEM_PROMPT` and `render_dataset()`.
@@ -103,8 +103,10 @@ Every failure saves the record with `tags: []`, `summary: null` and `curation.st
 
 ```python
 class CurationProvider(Protocol):
-    name: CurationProviderName          # "anthropic" | "keyword"
-    model: str | None                   # None for keyword
+    @property
+    def name(self) -> CurationProviderName: ...   # "anthropic" | "keyword"
+    @property
+    def model(self) -> str | None: ...           # None for keyword
     async def curate(self, new: NewDataset) -> CurationDraft: ...   # raises CurationError(failure)
 ```
 
