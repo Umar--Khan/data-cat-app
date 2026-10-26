@@ -1,6 +1,6 @@
 # Architecture
 
-> _Draft_ for review. This is the system view and the decisions that cut across it. Behaviour contracts, and the decisions local to a subsystem, live in [`specs/`](../specs/README.md).
+> This is the system view and the decisions that cut across it. Behaviour contracts, and the decisions local to a subsystem, live in [`specs/`](../specs/README.md).
 
 A single-page data catalogue. Users register a dataset (name, owner, description) and the API curates it into tags and a one-sentence summary: with Claude when a key is configured, and with a deterministic keyword curator otherwise. The brief's rubric and validation checklist are the acceptance criteria, and [`README.md`](../README.md) maps each checklist item to the test that proves it.
 
@@ -47,7 +47,7 @@ sequenceDiagram
 backend/              FastAPI app (uv project, package src/catalogue)
 frontend/             React app with its Vitest and Playwright suites
 specs/                one behaviour contract per subsystem; read before changing that subsystem
-docs/                 this file and the latest browser-verification report
+docs/                 this file, the latest browser-verification report and its screenshots
 .claude/              project skills and agents
 .github/              CI workflow and its composite setup action
 scripts/              dev.mjs runs API and web together; gen-api.mjs runs codegen and the drift check; ensure-env.mjs creates backend/.env
@@ -125,6 +125,8 @@ src/
     components/        form, list, card, tag list, curation badge, list states
   lib/api/             openapi-fetch client, ApiError, generated schema.gen.ts
   lib/forms/           server field errors mapped into react-hook-form
+  lib/env.ts           the only reader of VITE_* variables, validated with zod
+  test/                Vitest setup, render helpers, axe, MSW
 ```
 
 Dependencies point one way: features may use `components/ui` and `lib`, and neither of those knows about datasets. There is no router, no client-state store and no barrel files.
@@ -145,7 +147,8 @@ React 19 · Vite 8 (Rolldown) · TypeScript 6 · Tailwind CSS 4 · TanStack Quer
 
 There are seven test layers:
 
-- backend unit and API (pytest);
+- backend unit (pytest);
+- backend API (pytest with `TestClient`);
 - contract (schemathesis);
 - frontend unit and component (Vitest Browser Mode with MSW and axe);
 - E2E (Playwright on the production build);

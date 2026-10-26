@@ -19,8 +19,8 @@ src/app/                 page shell, providers, query client, error boundary
 src/components/ui/       feature-agnostic primitives
 src/features/datasets/   api/, hooks/, components/
 src/lib/                 API client and ApiError, form helpers, env
-src/test/                test setup, axe helper, MSW
-e2e/                     Playwright specs; fixtures.ts holds the cleanup fixture, route gates, axe and toast helpers
+src/test/                test setup, render helpers, axe and focus-ring helpers, media emulation, MSW
+e2e/                     Playwright specs; fixtures.ts holds the cleanup fixture, route gates, keyboard, axe and toast helpers; urls.ts the dedicated ports
 ```
 
 - Dependencies point one way: `features` may import `components/ui` and `lib`, and neither of those imports `features`.
@@ -44,7 +44,7 @@ e2e/                     Playwright specs; fixtures.ts holds the cleanup fixture
 
 - Every control has a visible `<label htmlFor>`. Hints and errors are linked through `aria-describedby`. `aria-invalid="true"` is set only while there is an error.
 - Native elements first: `button`, `label`, `ul`, `dl`, and `<dialog>` with `showModal()` for confirmation. No `window.confirm`, no component library, no positive `tabIndex`.
-- Focus moves are specified: the first invalid field after a failed submit, Name after a create, the neighbouring row's heading after a delete, the "Datasets" heading after Try again, and the fallback's heading when the page fails to render. A pending button uses `aria-disabled`, not `disabled`, so it keeps focus.
+- Focus moves are specified: the first invalid field after a failed submit, Name after a create, the neighbouring row's heading after a delete (the "Datasets" heading when none is left), the "Datasets" heading after Try again and from the skip link, and the fallback's heading when the page fails to render. A pending button uses `aria-disabled`, not `disabled`, so it keeps focus.
 - Live regions are mounted before their text changes. `role="alert"` is only for errors that follow a user action.
 - Accessible names are contract, listed in `specs/datasets-ui.md`. Tests, Playwright and `/verify-ui` select by them, so renaming one is a spec change.
 

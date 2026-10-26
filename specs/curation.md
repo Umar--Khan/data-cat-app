@@ -1,6 +1,6 @@
 # AI curation
 
-> _Draft_ · Last verified against code: not yet
+> Last verified against code: 2026-10-26
 
 ## Purpose
 
@@ -163,6 +163,6 @@ The provider runs the real `AsyncAnthropic` from `build_client()` over `httpx2.M
 
 ## Deferred / open
 
-- Latency at low effort has not been measured; no key was available during design. `/verify-api` measures it when a key is present.
+- Latency at low effort has not been measured. The key configured during development is not scoped to a workspace, and live calls wait on an `ANTHROPIC_WORKSPACE_ID`. `/verify-api` measures latency once a call goes through.
 - The system prompt's token count is an estimate (about 800–1,000 tokens), so whether caching takes effect is unconfirmed.
 - No re-curation, streaming, batch processing or per-request model choice.

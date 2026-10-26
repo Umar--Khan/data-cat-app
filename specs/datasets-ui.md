@@ -1,6 +1,6 @@
 # Datasets page
 
-> _Draft_ · Last verified against code: not yet
+> Last verified against code: 2026-10-26
 
 ## Purpose
 
@@ -15,6 +15,9 @@ The single page of the app: a form to register a dataset and, below it, the cata
 - `frontend/src/lib/api/api-error.ts`, `frontend/src/lib/forms/apply-server-errors.ts`.
 - `frontend/src/app/query-client.ts`: query and mutation defaults.
 - `frontend/src/components/ui/confirm-dialog.tsx`.
+- `frontend/src/app/providers.tsx`: the Toaster, focus expanding the stack, and the front toast's height copied for scroll padding.
+- `frontend/src/app/error-boundary.tsx`: the render-failure fallback.
+- `frontend/src/index.css`: `--toast-clearance` and the sonner overrides.
 
 ## Behaviour contract
 
@@ -50,9 +53,9 @@ The single page of the app: a form to register a dataset and, below it, the cata
   - Curation failed: warning toast `Saved "{name}" without AI tags`, with `curation.detail` as its description.
   - The new row appears at the end of the list.
 - **Server rejection.**
-  - Field errors in a 400 response that match a form field are shown inline on those fields, and focus moves to the first.
+  - Field errors in a 400 response that match a form field are shown inline on those fields, and focus moves to the first of them in form order (Name, Owner, Description), whatever order the server lists them in.
   - Anything else shows an inline danger alert above the submit button (`role="alert"`), titled "Couldn't add the dataset", with the `ApiError` message as its body. That covers a 400 with no field error matching a form field, any other 4xx or 5xx, and network failures. The alert is cleared at the start of every submit, so a repeated failure is mounted, and announced, again.
-  - Typed values are kept.
+  - Typed values are kept. When the rejection is shown as the alert, focus stays on the submit button.
 
 ### List
 
@@ -117,7 +120,7 @@ An error boundary at the root, outside the providers, replaces the page with a `
 
 ## Data contract
 
-- **Types** come from `schema.gen.ts`: `Dataset`, `DatasetCreate`, `ProblemDetails`, `FieldError`.
+- **Types** come from `schema.gen.ts`: `Dataset`, `Curation`, `DatasetCreate`, `ProblemDetails`, `FieldError`.
 - **`ApiError`** has `kind: 'http' | 'network'`, `status` (`null` when no response arrived), `message` and `fieldErrors`.
   - For problem responses (`application/problem+json` with a problem body), `message` is the problem's `detail`, falling back to its `title`. A body that does not match `ProblemDetails` (string `title` and `detail`, and `errors` whose entries each have a string `field` and `message`) is treated as a plain HTTP error.
   - Any other error response gets "The server returned an unexpected error (HTTP {status})."
@@ -129,12 +132,12 @@ An error boundary at the root, outside the providers, replaces the page with a `
 
 ## Invariants & decided points
 
-- **Accessible names are part of the contract**: Name, Owner, Description, Add dataset, Saving and curating…, Delete {name}, Delete dataset, Cancel, Try again, Skip to datasets, Reload page. Tests, E2E specs and `/verify-ui` use these names.
+- **Accessible names are part of the contract**: Name, Owner, Description, Add dataset, Saving and curating…, Delete {name}, Delete dataset, Cancel, Try again, Skip to datasets, Reload page, plus sonner's own "Notifications alt+T" region and "Close toast" button. Tests, E2E specs and `/verify-ui` use these names, so a sonner upgrade that renames either is a spec change.
 - **The "20 seconds" in the pending copy mirrors the default** of `CATALOGUE_ANTHROPIC_TIMEOUT_SECONDS`. A change to that default changes this copy in the same commit.
 - **Create writes the server's record into the cache** after `cancelQueries`, and does not refetch beyond restarting a refresh it cancelled. The 201 body is the canonical record. Create and delete cancel only a list that has data: cancelling a first load reverts it to pending with no fetch left to settle it, so a first load in flight is left to finish.
 - **Optimistic delete filters pending delete mutations out of the list in `select`.** Concurrent deletes cannot bring each other's rows back, and a failure restores its row without manual work. Rejected: snapshot and rollback in `onMutate`/`onError`, where one delete's rollback can restore another's row.
 - **Delete is confirmed** (WCAG 2.2 SC 3.3.4, AA, requires deleting stored data to be confirmed, checked or reversible). Rejected: one-click delete, which fails AA; undo, which would need a restore endpoint or a delayed DELETE that is lost if the tab closes.
-- **Native `<dialog>` with `showModal()`; no component library.** The dialog is the only non-trivial widget besides toasts. `showModal()` provides the top layer, an inert background, Esc and focus return. The dialog reports the closes it makes (Esc, Cancel, confirm) at once rather than through the `close` event, which arrives a task later and would leave a Delete pressed in between with nothing to reopen. Rejected: Radix or shadcn, which would re-implement those behaviours in JavaScript.
+- **Native `<dialog>` with `showModal()`; no component library.** The dialog is the only non-trivial widget besides toasts. `showModal()` provides the top layer, an inert background, Esc and focus return. The dialog reports the closes it makes (Esc, Cancel, confirm) at once rather than through the `close` event, which arrives a task later and would leave a Delete pressed in between with nothing to reopen. A close it did not make, such as the browser handling Esc without a `cancel` event, is still reported through the `close` event, but only while `open` is true; closing it by setting `open` to false reports nothing. Rejected: Radix or shadcn, which would re-implement those behaviours in JavaScript.
 - **react-hook-form with zod.** React 19 form actions and `useOptimistic` are not used. TanStack Query already owns pending and error state, and a second mechanism would be a second source of truth.
 - **`role="alert"` only for errors that follow a user action.** Status regions are mounted before their text changes, because a live region inserted along with its content is not reliably announced.
 

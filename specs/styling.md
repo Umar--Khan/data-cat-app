@@ -1,6 +1,6 @@
 # Styling
 
-> _Draft_ · Last verified against code: not yet
+> Last verified against code: 2026-10-26
 
 ## Purpose
 
