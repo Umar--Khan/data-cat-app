@@ -31,7 +31,7 @@ Open http://localhost:5173. The API's interactive docs are at http://localhost:8
 
 If your key is not scoped to a workspace, Anthropic answers every call with a 400 until you also set `ANTHROPIC_WORKSPACE_ID`. Other settings, with their defaults, are in `backend/.env.example` and [docs/architecture.md](docs/architecture.md#configuration).
 
-The keyword curator on the brief's test payload:
+The keyword curator on a sample dataset:
 
 ```json
 {
@@ -44,7 +44,7 @@ The keyword curator on the brief's test payload:
 
 Claude is called with structured outputs, so its reply is parsed into the same shape. A curation that fails (a timeout, a rate limit, Anthropic unavailable or rejecting the request, a refusal, or a reply that can't be used) never loses the record: it is saved with `curation.status: "failed"`, empty tags, no summary, and a `detail` the UI shows.
 
-## How the brief is met
+## Constraints and how they are met
 
 ### Validation checklist
 
@@ -84,7 +84,7 @@ Claude is called with structured outputs, so its reply is parsed into the same s
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm check`      | Backend: ruff, import-linter, mypy `--strict`, pytest and schemathesis at 95 % coverage, OpenAPI drift. Frontend: ESLint, Prettier, `tsc`, Vitest Browser Mode at 95 % coverage. |
 | `pnpm test:e2e`   | Playwright against the production build, on its own servers (:8001, :4173), with the keyword curator pinned                                                                      |
-| `pnpm verify:api` | The brief's API checklist against a fresh server; `--degraded` for the failure path, `--provider anthropic` for one live Claude call                                             |
+| `pnpm verify:api` | The API checklist against a fresh server; `--degraded` for the failure path, `--provider anthropic` for one live Claude call                                                     |
 
 Husky runs lint-staged and commitlint on commit and `pnpm check` on push. CI runs the backend checks, the frontend checks with a production build, and an E2E job with both `verify:api` modes.
 
