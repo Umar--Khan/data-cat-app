@@ -29,7 +29,7 @@ The single page of the app: a form to register a dataset and, below it, the cata
 - **Fields.**
   - Name, Owner and Description, each with a visible `<label>`.
   - Description has the hint "What the data contains and how often it updates. Used to generate tags and a summary."
-  - The form says once that all fields are required. There are no placeholders and no asterisks.
+  - "All fields are required." appears once, above the fields. There are no placeholders and no asterisks.
   - Name and Owner set `autoComplete="off"`.
 - **Submit button.** Reads "Add dataset". The section heading is "Add a dataset".
 - **Validation.**
@@ -51,7 +51,7 @@ The single page of the app: a form to register a dataset and, below it, the cata
   - The new row appears at the end of the list.
 - **Server rejection.**
   - Field errors in a 400 response that match a form field are shown inline on those fields, and focus moves to the first.
-  - Anything else shows an inline alert above the submit button (`role="alert"`) with the `ApiError` message. That covers a 400 with no field error matching a form field, any other 4xx or 5xx, and network failures.
+  - Anything else shows an inline danger alert above the submit button (`role="alert"`), titled "Couldn't add the dataset", with the `ApiError` message as its body. That covers a 400 with no field error matching a form field, any other 4xx or 5xx, and network failures. The alert is cleared at the start of every submit, so a repeated failure is mounted, and announced, again.
   - Typed values are kept.
 
 ### List
