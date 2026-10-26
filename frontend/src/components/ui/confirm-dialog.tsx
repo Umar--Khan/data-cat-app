@@ -19,7 +19,7 @@ interface ConfirmDialogProps {
   title: string
   description: string
   confirmLabel: string
-  /** Runs after every close, whether by Esc, Cancel or confirm, so the caller can set `open` back. */
+  /** Runs when the dialog closes itself, by Esc, Cancel or confirm, so the caller can set `open` back. */
   onClose: () => void
   /** Runs after the dialog has closed, so focus the caller moves here is not taken back by it. */
   onConfirm: () => void
@@ -46,6 +46,14 @@ export function ConfirmDialog({
     else ref.current?.close()
   }, [open])
 
+  // The close event arrives a task after the dialog closes. Reporting only through it would leave
+  // `open` true in between, so a Delete pressed then would change nothing and the late event would
+  // shut the dialog it asked for. Closes made here are reported at once instead.
+  function close() {
+    ref.current?.close()
+    onClose()
+  }
+
   return (
     <dialog
       ref={ref}
@@ -53,7 +61,12 @@ export function ConfirmDialog({
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
       className={styles.base({ class: className })}
-      onClose={onClose}
+      onCancel={onClose}
+      // Reports only a close nothing above did, such as an Esc the browser handles without a
+      // cancel event, and never one for a dialog that has opened again since.
+      onClose={(event) => {
+        if (open && !event.currentTarget.open) onClose()
+      }}
     >
       <h2 id={titleId} className={styles.title()}>
         {title}
@@ -62,13 +75,13 @@ export function ConfirmDialog({
         {description}
       </p>
       <div className={styles.actions()}>
-        <Button variant="secondary" onClick={() => ref.current?.close()}>
+        <Button variant="secondary" onClick={close}>
           Cancel
         </Button>
         <Button
           variant="danger"
           onClick={() => {
-            ref.current?.close()
+            close()
             onConfirm()
           }}
         >

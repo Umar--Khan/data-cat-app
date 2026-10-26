@@ -166,7 +166,32 @@ describe('ConfirmDialog', () => {
     await expectNoA11yViolations()
   })
 
-  it('opens and closes with the open prop, reporting the close', async () => {
+  it('can be opened again before the close event arrives', async () => {
+    const { opener, dialog } = await openDialog()
+    const element = dialog.element() as HTMLDialogElement
+    const cancel = dialog.getByRole('button', { name: 'Cancel' }).element() as HTMLButtonElement
+    // Two inputs a microtask apart, as separate key presses are: React renders in between, but the
+    // close event the first click queues is a task, so it arrives only after the second click.
+    cancel.click()
+    await Promise.resolve()
+    ;(opener.element() as HTMLButtonElement).click()
+    await new Promise((resolve) => setTimeout(resolve))
+
+    expect(element.open).toBe(true)
+    await expect.element(dialog).toBeVisible()
+  })
+
+  it('reports a close it did not make, so it can be opened again', async () => {
+    const { opener, dialog } = await openDialog()
+    // As when the browser handles Esc without a cancel event: only the close event follows.
+    ;(dialog.element() as HTMLDialogElement).close()
+    await expect.element(dialog).not.toBeInTheDocument()
+
+    await userEvent.click(opener)
+    await expect.element(dialog).toBeVisible()
+  })
+
+  it('opens and closes with the open prop, reporting no close it was told to make', async () => {
     const onClose = vi.fn()
     const props = {
       title,
@@ -190,7 +215,8 @@ describe('ConfirmDialog', () => {
     )
 
     await expect.element(screen.getByRole('alertdialog')).not.toBeInTheDocument()
-    await expect.poll(() => onClose).toHaveBeenCalledOnce()
+    await new Promise((resolve) => setTimeout(resolve))
+    expect(onClose).not.toHaveBeenCalled()
   })
 
   it('merges a caller className over its own classes', async () => {
