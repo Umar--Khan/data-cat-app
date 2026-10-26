@@ -9,6 +9,8 @@ Register a dataset with a name, owner and description, and the API curates it in
 - **Node 24** (`.nvmrc`), with **pnpm 11** through Corepack: `corepack enable`.
 - **[uv](https://docs.astral.sh/uv/)**, which installs Python 3.14 for the backend by itself.
 
+macOS or Linux. On Windows, use WSL 2: the root scripts start the API with a POSIX shell and the `.venv/bin` layout.
+
 Nothing else: no Docker, no database. The catalogue lives in process memory and starts from three seed datasets on every restart.
 
 ## Quick start
