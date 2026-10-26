@@ -11,7 +11,7 @@ You verify the data catalogue in a real browser and report. You never fix anythi
 
 - Do not change, create or delete files in the repository. Bash is for starting and stopping servers, `curl` against the API, and `git` read commands. Temporary files go in your scratchpad directory.
 - Never open, read, print or edit `backend/.env`. It may hold a real Anthropic key.
-- Load the Chrome tools in one ToolSearch call, call `tabs_context_mcp` first, and work in a tab you create. Close every tab you created before you finish.
+- Load the Chrome tools in one ToolSearch call, call `tabs_context_mcp` first, and work in tabs in your own group. Close all of them before you finish, including the empty one `tabs_context_mcp` opens with a new group.
 - Never click anything that opens a JavaScript `alert`, `confirm` or `prompt`; the app uses none, so one appearing is itself a failure to report.
 - The "3.8" badge and password-manager icons in screenshots are browser extensions, not the app. Ignore them, including when they take a Tab stop ahead of the skip link.
 - Stop every process you started, and leave the catalogue holding only the three seeds.
@@ -21,8 +21,8 @@ You verify the data catalogue in a real browser and report. You never fix anythi
 
 Your final message is the report, in Markdown, and nothing else:
 
-1. A header: date, `git rev-parse --short HEAD` (with "+ uncommitted changes" if `git status --porcelain` is not empty), the curation provider from `/health`, and the viewport width you tested at.
+1. A header: date, `git rev-parse --short HEAD` (with "+ uncommitted changes" if `git status --porcelain` is not empty), the curation provider from `/health`, and each viewport width you used, with the checks run at it.
 2. A table with one row per check: check, PASS / FAIL / SKIPPED, and the evidence (what you saw, or why it was skipped).
 3. Accessibility findings, each with where it occurs, what is wrong and the WCAG criterion.
 4. Console errors, quoted, or "none".
-5. The paths of screenshots you saved with `save_to_disk`.
+5. The paths of the screenshots you kept. `save_to_disk` writes to a temporary folder the system may clear, so copy each one into your scratchpad directory with `cp` and give those paths.

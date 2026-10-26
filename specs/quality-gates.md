@@ -1,6 +1,6 @@
 # Quality gates
 
-> _Draft_ · Last verified against code: not yet
+> Last verified against code: 2026-10-26
 
 ## Purpose
 
@@ -21,7 +21,7 @@ What each test layer proves, the thresholds that fail a change, what the git hoo
 | Script              | Does                                                                                                                                                                                                                                                   |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `pnpm bootstrap`    | `pnpm install`, `uv sync` for the backend, installs Playwright's Chromium, and copies `backend/.env.example` to `backend/.env` if it is missing                                                                                                        |
-| `pnpm dev`          | API on :8000 (auto-reload) and Vite on :5173. Prints the active curation provider from `/health`.                                                                                                                                                      |
+| `pnpm dev`          | API on :8000 (auto-reload) and Vite on :5173. Refuses to start if something already answers on the API port. Prints the active curation provider from `/health`.                                                                                       |
 | `pnpm dev:degraded` | API on :8100 with the offline failure configuration ([curation.md](./curation.md#provider-selection)) and `CATALOGUE_CORS_ORIGINS=["http://localhost:5180"]`; Vite on :5180 with `VITE_API_BASE_URL=http://localhost:8100`. Runs alongside `pnpm dev`. |
 | `pnpm check`        | `check:api`, then `check:web`. Pre-push runs this.                                                                                                                                                                                                     |
 | `pnpm check:api`    | ruff (lint and format check), import-linter, mypy, pytest with coverage, and the OpenAPI drift check (regenerate to a temporary directory and compare with the committed files)                                                                        |
@@ -31,15 +31,15 @@ What each test layer proves, the thresholds that fail a change, what the git hoo
 | `pnpm gen:api`      | Exports OpenAPI and regenerates `schema.gen.ts` ([api-contract.md](./api-contract.md#invariants--decided-points))                                                                                                                                      |
 | `pnpm format`       | Prettier, then ruff fix and format                                                                                                                                                                                                                     |
 
-The name is `bootstrap`, not `setup`, because on pnpm 9 and 10 `pnpm setup` runs pnpm's built-in command, which edits the shell profile and installs nothing. Focused runs (one test file, watch mode) use `uv run pytest …` and `pnpm --filter frontend exec vitest …` directly; `backend/CLAUDE.md` and `frontend/CLAUDE.md` list them.
+The name is `bootstrap`, not `setup`, because `pnpm setup` runs pnpm's built-in command (still present in pnpm 11), which edits the shell profile and installs nothing. Focused runs (one test file, watch mode) use `uv run pytest …` from `backend/` and `pnpm exec vitest run …` or `pnpm test:watch` from `frontend/`; `backend/CLAUDE.md` and `frontend/CLAUDE.md` list them.
 
 ### Git hooks (husky)
 
-| Hook         | Runs                                                                                                                                        | Why there                                                                                                                                                                                   |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pre-commit` | lint-staged: ESLint `--fix` and Prettier on staged TS and TSX; Prettier on JS, CSS, MD, JSON and YAML; ruff fix and format on staged Python | Per-file and auto-fixing only, so it stays at a few seconds                                                                                                                                 |
-| `commit-msg` | commitlint with `config-conventional`                                                                                                       | Conventional Commits                                                                                                                                                                        |
-| `pre-push`   | `pnpm check`                                                                                                                                | Whole-program checks are too slow for every commit: `tsc`, `mypy`, import contracts, full suites with coverage, OpenAPI drift. A passing push equals CI minus the production build and E2E. |
+| Hook         | Runs                                                                                                                                              | Why there                                                                                                                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pre-commit` | lint-staged: ESLint `--fix` and Prettier on staged TS and TSX; Prettier on JS, CSS, MD, JSON, YAML and HTML; ruff fix and format on staged Python | Per-file and auto-fixing only, so it stays at a few seconds                                                                                                                                 |
+| `commit-msg` | commitlint with `config-conventional`                                                                                                             | Conventional Commits                                                                                                                                                                        |
+| `pre-push`   | `pnpm check`                                                                                                                                      | Whole-program checks are too slow for every commit: `tsc`, `mypy`, import contracts, full suites with coverage, OpenAPI drift. A passing push equals CI minus the production build and E2E. |
 
 ### CI (GitHub Actions)
 
@@ -122,12 +122,12 @@ With `--provider anthropic` (a key is required; without one it stops before star
 
 ### Claude in Chrome verification
 
-**`/verify-ui`** is a skill, run in the `ui-tester` agent (`context: fork`). It drives the running app in the user's Chrome. With the argument `keyword`, servers it starts use the keyword curator; otherwise `backend/.env` decides, and with a Claude key each of the two datasets it creates is one billed call.
+**`/verify-ui`** is a skill, run in the `ui-tester` agent (`context: fork`). It drives the running app in the user's Chrome. With the argument `keyword`, servers it starts use the keyword curator; otherwise `backend/.env` decides, and with a Claude key each of the three datasets it creates on :8000 (the checklist entry, the keyboard pass's entry and the deleted-elsewhere record) is one billed call.
 
-1. **Preflight.** If nothing is listening on :8000 and :5173, it starts the API and Vite itself, as two processes with the commands `scripts/dev.mjs` uses, so step 5 can stop and restart the API alone (`pnpm dev` stops both when either exits). If the servers are already running, it checks that `GET /datasets` returns exactly the three seeds, and asks for a restart if not. The provider from `/health` goes in the report header.
+1. **Preflight.** If nothing is listening on :8000 and :5173, it starts the API and Vite itself, as two processes with the commands `scripts/dev.mjs` uses (the API without `--reload`), so step 5 can stop and restart the API alone (`pnpm dev` stops both when either exits). If the servers are already running, it checks that `GET /datasets` returns exactly the three seeds, and asks for a restart if not. The provider from `/health` goes in the report header.
 2. **The brief's frontend checklist.** The delete step removes only the record the run created.
 3. **Keyboard-only pass,** with a screenshot at each focus stop.
-4. **Accessibility spot checks:** landmarks, names, the live region, and reflow at 320 px. It reads back `innerWidth`; a window that cannot get that narrow is tested at the narrowest width it reaches, which the report records, and the Playwright a11y spec covers 320 × 720 exactly.
+4. **Accessibility spot checks:** landmarks, names, the live region, and reflow at 320 px. It reads back `innerWidth`. A window that cannot get that narrow is checked at the narrowest width it reaches and in a same-origin iframe 320 px wide; the report records each width, and the Playwright a11y spec covers 320 × 720 exactly.
 5. **Real failure states,** with no interception:
    - stop the API it started, load the page, restart the API, then "Try again";
    - delete a row it created with `curl`, then delete it in the UI (info toast).
@@ -170,4 +170,4 @@ With `--provider anthropic` (a key is required; without one it stops before star
 ## Deferred / open
 
 - Firefox and WebKit projects are omitted: about 300 MB of downloads for one page of standard CSS. Each is a one-line addition.
-- Whether a forked skill can use the Claude in Chrome tools is unverified. If it cannot, `/verify-ui` runs inline with the same steps.
+- The first `/verify-ui` run followed the skill through a general-purpose agent, because Claude Code loads a skill added mid-session only after a restart; that agent reached the Chrome tools through ToolSearch. A run through the forked skill and `ui-tester` itself is still to be confirmed. If it cannot reach the Chrome tools, `/verify-ui` runs inline with the same steps.
