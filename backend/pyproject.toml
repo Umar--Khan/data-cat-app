@@ -17,11 +17,13 @@ catalogue-openapi = "catalogue.app:export_openapi"
 [dependency-groups]
 dev = [
     "httpx2>=2.16,<3",
+    "hypothesis>=6.170,<7",
     "import-linter>=2.15,<3",
     "mypy>=2.4,<3",
     "pytest>=9.1,<10",
     "pytest-cov>=7.1,<8",
     "ruff>=0.17.2,<0.18",
+    "schemathesis>=4.32,<5",
 ]
 
 [build-system]
