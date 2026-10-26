@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -58,6 +59,21 @@ def test_create_app_reports_invalid_configuration_without_a_traceback(
     assert message.startswith("Invalid configuration in the environment or backend/.env\n")
     assert "CATALOGUE_CURATION_PROVIDER=anthropic requires ANTHROPIC_API_KEY" in message
     assert excinfo.value.__suppress_context__
+
+
+def test_invalid_configuration_never_prints_the_value_it_rejected(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("ANTHROPIC_APIKEY=sk-ant-misspelt-secret\n")
+    monkeypatch.setitem(Settings.model_config, "env_file", env_file)
+
+    with pytest.raises(SystemExit) as excinfo:
+        create_app()
+
+    message = str(excinfo.value.code)
+    assert message.endswith("\nanthropic_apikey: Extra inputs are not permitted")
+    assert "sk-ant-misspelt-secret" not in message
 
 
 def test_startup_logs_the_provider_model_and_host_but_never_the_key(

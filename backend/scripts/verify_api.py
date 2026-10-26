@@ -17,8 +17,9 @@ from contextlib import contextmanager
 from typing import Any
 
 import httpx2
+from pydantic import ValidationError
 
-from catalogue.core.config import Settings
+from catalogue.core.config import Settings, describe_invalid_settings
 
 TEST_PAYLOAD = {
     "name": "Trade Confirmations",
@@ -265,6 +266,16 @@ def fresh_server(environment: Mapping[str, str]) -> Iterator[tuple[httpx2.Client
             server.wait()
 
 
+def _load_settings() -> Settings:
+    try:
+        return Settings()
+    except ValidationError as error:
+        raise SystemExit(
+            "Invalid configuration in the environment or backend/.env. No server was started.\n"
+            f"{describe_invalid_settings(error)}"
+        ) from None
+
+
 def parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="pnpm verify:api",
@@ -290,7 +301,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     live = args.provider == "anthropic"
     # Fails fast instead of starting a server that would only fail Settings validation. Settings
     # reads the environment and backend/.env exactly as that server would.
-    if live and Settings().anthropic_api_key is None:
+    if live and _load_settings().anthropic_api_key is None:
         raise SystemExit(
             "--provider anthropic needs ANTHROPIC_API_KEY, in the environment or backend/.env. "
             "No server was started."

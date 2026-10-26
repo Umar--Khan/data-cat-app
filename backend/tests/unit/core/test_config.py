@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from catalogue.core.config import Settings
+from catalogue.core.config import Settings, describe_invalid_settings
 
 ENV_EXAMPLE = Path(__file__).parents[3] / ".env.example"
 
@@ -203,6 +203,32 @@ def test_misspelt_key_in_env_file_fails_validation(tmp_path: Path) -> None:
 
     with pytest.raises(ValidationError, match="catalogue_curation_provder"):
         Settings(_env_file=env_file)
+
+
+def test_invalid_settings_are_described_without_the_values_they_rejected(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "ANTHROPIC_APIKEY=sk-ant-misspelt-secret\nCATALOGUE_LOG_LEVEL=sk-ant-misplaced-secret\n"
+    )
+
+    with pytest.raises(ValidationError) as excinfo:
+        Settings(_env_file=env_file)
+
+    description = describe_invalid_settings(excinfo.value)
+    assert description.splitlines() == [
+        "log_level: Input should be 'DEBUG', 'INFO', 'WARNING' or 'ERROR'",
+        "anthropic_apikey: Extra inputs are not permitted",
+    ]
+    assert "sk-ant-" not in description
+
+
+def test_an_error_about_the_settings_as_a_whole_is_described_without_a_location() -> None:
+    with pytest.raises(ValidationError) as excinfo:
+        Settings(_env_file=None, curation_provider="anthropic")
+
+    assert describe_invalid_settings(excinfo.value) == (
+        "Value error, CATALOGUE_CURATION_PROVIDER=anthropic requires ANTHROPIC_API_KEY"
+    )
 
 
 def test_env_example_is_valid_and_keeps_the_key_empty() -> None:

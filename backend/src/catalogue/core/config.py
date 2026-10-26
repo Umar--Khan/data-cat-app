@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Annotated, Literal, Self
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import Field, SecretStr, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from catalogue.core.logging import LogLevel
@@ -57,3 +57,16 @@ class Settings(BaseSettings):
         if self.curation_provider == "anthropic" and self.anthropic_api_key is None:
             raise ValueError("CATALOGUE_CURATION_PROVIDER=anthropic requires ANTHROPIC_API_KEY")
         return self
+
+
+def describe_invalid_settings(error: ValidationError) -> str:
+    """The Settings errors as `location: message` lines, without the values that failed.
+
+    `str(error)` quotes every rejected value, so a misspelt `ANTHROPIC_APIKEY=sk-ant-…` in
+    `backend/.env` would print the key it holds.
+    """
+    lines = []
+    for entry in error.errors(include_input=False, include_url=False):
+        location = ".".join(str(part) for part in entry["loc"])
+        lines.append(f"{location}: {entry['msg']}" if location else entry["msg"])
+    return "\n".join(lines)

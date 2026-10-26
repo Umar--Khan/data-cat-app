@@ -6,6 +6,7 @@ CI and the verify-api skill read only the exit code, so every failed check has t
 import signal
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
+from pathlib import Path
 
 import httpx2
 import pytest
@@ -61,3 +62,19 @@ def test_exits_non_zero_when_a_check_fails(
 
     assert verify_api.main([]) == code
     assert capsys.readouterr().out.splitlines()[-1] == summary
+
+
+def test_a_live_run_reports_invalid_configuration_without_the_value_it_rejected(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("ANTHROPIC_APIKEY=sk-ant-misspelt-secret\n")
+    monkeypatch.setitem(Settings.model_config, "env_file", env_file)
+
+    with pytest.raises(SystemExit) as excinfo:
+        verify_api.main(["--provider", "anthropic"])
+
+    message = str(excinfo.value.code)
+    assert message.endswith("\nanthropic_apikey: Extra inputs are not permitted")
+    assert "sk-ant-misspelt-secret" not in message
+    assert excinfo.value.__suppress_context__

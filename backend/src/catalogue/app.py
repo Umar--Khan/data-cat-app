@@ -15,7 +15,7 @@ from catalogue.api.deps import LifespanState
 from catalogue.api.openapi import CatalogueAPI
 from catalogue.api.problems import UnhandledErrorMiddleware, exception_handlers
 from catalogue.api.routes import datasets, health
-from catalogue.core.config import Settings
+from catalogue.core.config import Settings, describe_invalid_settings
 from catalogue.core.logging import configure_logging
 from catalogue.curation.base import CurationProvider
 from catalogue.curation.factory import open_curation_provider
@@ -42,7 +42,10 @@ def create_app(
         try:
             settings = Settings()
         except ValidationError as error:
-            message = f"Invalid configuration in the environment or backend/.env\n{error}"
+            message = (
+                "Invalid configuration in the environment or backend/.env\n"
+                f"{describe_invalid_settings(error)}"
+            )
             raise SystemExit(message) from None
     configure_logging(settings.log_level)
 
